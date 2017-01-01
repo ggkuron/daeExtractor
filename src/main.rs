@@ -5,7 +5,7 @@ extern crate collada;
 use std::path::Path;
 use collada::document::ColladaDocument;
 
-use nickel::{Nickel, HttpRouter, JsonBody, MediaType, StaticFilesHandler};
+use nickel::{Nickel, HttpRouter, JsonBody, MediaType, StaticFilesHandler, Response, Request};
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 use nickel::status::StatusCode;
 
@@ -170,9 +170,13 @@ fn main() {
             }
         };
     });
-    server.post("/new", middleware! { |req, mut rep| {
-        let json = req.json_as::<Object>().unwrap();
+    server.post("/object/new", middleware! { |res, mut rep| { reg_new_object(res, &mut rep) } });
 
+    server.listen("127.0.0.1:3000").unwrap();
+}
+
+fn reg_new_object(req: &mut Request, rep: &mut Response) -> String {
+        let json = req.json_as::<Object>().unwrap();
         let conn = req.db_conn().unwrap();
 
         match conn.execute("
@@ -261,9 +265,6 @@ fn main() {
             },
             Err(err) => format!("Could not insert a new entry: {}", err),
         }
-    }});
-
-    server.listen("127.0.0.1:3000").unwrap();
 }
 
 fn vtn_to_vertex(a: collada::VTNIndex, obj: &collada::Object) -> Vertex {
