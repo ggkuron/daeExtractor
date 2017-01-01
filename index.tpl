@@ -12,7 +12,7 @@
         margin: 0;
         padding: 0;
         width: 100%;
-        background: rgb(127, 255, 212);
+        background: rgb(190, 209, 209);
       }
       .row__item, .row__header {
         border: 1px solid rgb(240, 240, 240);
@@ -43,6 +43,9 @@
       }
       #btn_add:hover {
         font-weight: bold;
+      }
+      .object__edit {
+        background: rgb(242, 235, 208);
       }
       tr.object__edit {
         display: none;
