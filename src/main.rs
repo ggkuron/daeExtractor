@@ -94,7 +94,6 @@ CREATE TABLE Mesh
     PRIMARY KEY (ObjectId, MeshId)
   );";
 const CREATE_TABLE_TEXTURE: &'static str = "
-CREATE TABLE Mesh 
 CREATE TABLE Texture
   ( TextureId  INTEGER NOT NULL,
     Name      TEXT NOT NULL,
