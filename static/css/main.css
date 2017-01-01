@@ -11,19 +11,20 @@ td {
   width: 100%;
   background: #bed1d1;
 }
-.table__row .row__item,
-.table__row .row__header {
+.table__row__item,
+.table__row__header {
   border: 1px solid #f0f0f0;
   width: 100%;
 }
-.table__row .row__header {
+.table__row__item--id,
+.table__row__header--id {
+  width: 5em;
+}
+.table__row__header {
   background: #f0f0f0;
 }
-.table__row .row__item:first-child {
+.table__row__item:first-child {
   padding-left: 10px;
-}
-.table__row .row__id {
-  width: 5em;
 }
 .btn {
   background: #f0f0f0;
@@ -34,20 +35,18 @@ td {
   background: #676767;
   color: #f2f3fc;
 }
-#btn_add {
+.flatadd {
   padding: 0;
   margin: 0;
   width: 100%;
 }
-#btn_add:hover {
+.flatadd:hover {
   font-weight: bold;
 }
 .object__edit {
   background: #f2ebd0;
-}
-.object__edit tr {
   display: none;
 }
-.object__edit tr .edit--active {
+.object__edit.edit--active {
   display: table-row;
 }

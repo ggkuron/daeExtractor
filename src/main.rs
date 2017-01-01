@@ -1,11 +1,6 @@
-#![feature(proc_macro)]
-
-// #[macro_use] extern crate serde_derive;
 extern crate rustc_serialize;
 #[macro_use] extern crate nickel;
 extern crate nickel_sqlite;
-// extern crate nickel_mustache;
-//
 extern crate collada;
 use std::path::Path;
 use collada::document::ColladaDocument;

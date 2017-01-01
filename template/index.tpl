@@ -35,30 +35,30 @@
       <table>
         <thead>
             <tr class="table__row">
-                <td class="row__header row__id">ObjectId</td>
-                <td class="row__header">Name</td>
-                <td class="row__header" >DELETE</td>
+                <td class="table__row__header table__row__header--id">ObjectId</td>
+                <td class="table__row__header">Name</td>
+                <td class="table__row__header" >DELETE</td>
             </tr>
         </thead>
         <tfoot>
             <tr class="table__row object__edit edit--active">
-              <td colspan="3" id="btn_add" class="btn" onclick="editToggle()">
+              <td colspan="3" id="btn_add" class="btn flatadd" onclick="editToggle()">
                   &plus;
               </td>
             </tr>
             <tr class="table__row object__edit">
-              <td class="row__item row__id">
+              <td class="table__row__item table__row__item--id">
                 <input id="txt_id" type="number"></input>
               </td>
-              <td class="row__item" colspan="2">
+              <td class="table__row__item" colspan="2">
                 <input id="txt_name" type="text"></input>
               </td>
             </tr>
             <tr class="table__row object__edit">
-              <td class="row__item">
+              <td class="table__row__item">
                 <input id="upd_file" type="file"></input>
               </td>
-              <td class="row__item btn" colspan="2" onclick="actionNew()">
+              <td class="table__row__item btn" colspan="2" onclick="actionNew()">
                 Save
               </td>
             </tr>
@@ -66,9 +66,9 @@
         <tbody>
             {{#objects}}
             <tr class="table__row">
-                <td class="row__item row__id">{{ObjectId}}</td>
-                <td class="row__item">{{Name}}</td>
-                <td class="row__item btn"
+                <td class="table__row__item table__row__item--id">{{ObjectId}}</td>
+                <td class="table__row__item">{{Name}}</td>
+                <td class="table__row__item btn"
                     onclick="return confirm('are you sure?')">
                     &#215;
                 </td>
