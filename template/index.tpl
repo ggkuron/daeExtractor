@@ -1,59 +1,6 @@
 <html>
   <head>
-    <style>
-      ul {
-        list-style: none;
-      }
-      td {
-        padding: 0;
-        margin: 0;
-      }
-      .table__row {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        background: rgb(190, 209, 209);
-      }
-      .row__item, .row__header {
-        border: 1px solid rgb(240, 240, 240);
-        width: 100%;
-      }
-      .row__header {
-        background: rgb(240, 240, 240);
-      }
-      .row__item:first-child {
-        padding-left: 10px;
-      }
-      .row__id {
-        width: 5em;
-      }
-      .btn {
-        background: rgb(240, 240, 240);
-        text-align: center;
-        cursor: pointer;
-      }
-      .btn:hover {
-        background: rgb(103, 103, 103);
-        color: rgb(242, 243, 252); 
-      }
-      #btn_add {
-        padding: 0;
-        margin: 0;
-        width: 100%;
-      }
-      #btn_add:hover {
-        font-weight: bold;
-      }
-      .object__edit {
-        background: rgb(242, 235, 208);
-      }
-      tr.object__edit {
-        display: none;
-      }
-      tr.object__edit.edit--active {
-        display: table-row;
-      }
-    </style>
+    <link rel="stylesheet" type="text/css" href="css/main.css">
     <script>
         function editToggle() {
             Array.from(document.getElementsByClassName('object__edit'))

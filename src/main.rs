@@ -10,7 +10,7 @@ extern crate collada;
 use std::path::Path;
 use collada::document::ColladaDocument;
 
-use nickel::{Nickel, HttpRouter, JsonBody, MediaType};
+use nickel::{Nickel, HttpRouter, JsonBody, MediaType, StaticFilesHandler};
 use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 use nickel::status::StatusCode;
 
@@ -148,6 +148,7 @@ fn main() {
     }
 
     server.utilize(mw);
+    server.utilize(StaticFilesHandler::new("static"));
     server.get("/", middleware! { |req, mut rep|
         let db = req.db_conn().unwrap();
         let mut stmt = db.prepare("SELECT * FROM Object").unwrap();
@@ -166,7 +167,7 @@ fn main() {
                 data.insert("objects", list);
                 rep.set(StatusCode::Ok);
                 rep.set(MediaType::Html);
-                return rep.render("index.tpl", &data);
+                return rep.render("template/index.tpl", &data);
             },
             Err(err) => {
                 rep.set(StatusCode::InternalServerError);

@@ -1,0 +1,23 @@
+{
+  "name": "ceditor",
+  "version": "0.0.0",
+  "description": "",
+  "main": "gulpfile.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ggkuron/daeExtractor.git"
+  },
+  "author": "ggkuron",
+  "license": "",
+  "bugs": {
+    "url": "https://github.com/ggkuron/daeExtractor/issues"
+  },
+  "homepage": "https://github.com/ggkuron/daeExtractor#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-stylus": "^2.6.0"
+  }
+}
