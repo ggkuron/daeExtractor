@@ -71,13 +71,14 @@
 
             var data = {
                 ObjectId: document.getElementById('txt_id').value,
-                Name: document.getElementById('txt_name').value
+                Name: document.getElementById('txt_name').value,
+                FileName: document.getElementById('upd_file').files[0].name
             }
             xhr.send(JSON.stringify(data));
             // http://stackoverflow.com/questions/36408373/posting-form-data-with-nickel-rs-works-the-first-time-returns-404-subsequent-ti
-            // xhr.onloaded = function() {
-            // }
-            setTimeout(location.reload(true), 200);
+            xhr.onloaded = () => location.reload(true)
+            xhr.onerror = () => location.reload(true)
+            // setTimeout(location.reload(true), 100);
         }
     </script>
   </head>
