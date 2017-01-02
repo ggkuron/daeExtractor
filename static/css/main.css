@@ -1,9 +1,18 @@
+html,
+body,
+ul {
+  margin: 0;
+  padding: 0;
+}
 ul {
   list-style: none;
 }
 td {
   padding: 0;
   margin: 0;
+}
+.table {
+  padding: 0 10px;
 }
 .table__row {
   margin: 0;
@@ -55,4 +64,34 @@ td.object__edit {
 }
 td.object__edit.edit--active {
   display: table-cell;
+}
+.topmenu__item {
+  display: inline-block;
+  cursor: pointer;
+  margin: 10px 0 10px 10px;
+  padding: 5px;
+  border: 1px solid #b4b4b4;
+  font-size: 1.2em;
+}
+.topmenu__item.active {
+  background: #f0f0f0;
+}
+.tab__item__frame {
+  position: absolute;
+  width: 100%;
+  border: 0;
+  top: 50px;
+  height: 600px;
+}
+.tab__item {
+  display: none;
+}
+li.tab__item.active {
+  display: list-item;
+}
+.detailFrame {
+  width: 100%;
+  height: 300px;
+  border: 0;
+  margin-top: 20px;
 }

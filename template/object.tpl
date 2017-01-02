@@ -78,11 +78,11 @@
         </tfoot>
         <tbody>
             {{#objects}}
-            <tr class="table__row">
+            <tr class="table__row" onclick="document.getElementById('detailFrame').src = '/object/{{ObjectId}}'">
                 <td class="table__row__item table__row__item--id">{{ObjectId}}</td>
                 <td class="table__row__item">{{Name}}</td>
                 <td class="table__row__item btn"
-                    onclick="if(confirm('are you sure?')) actionDelete({{ObjectId}})">
+                    onclick="event.stopPropagation(); if(confirm('are you sure?')) actionDelete({{ObjectId}})">
                     &#215;
                 </td>
             </tr>
@@ -90,5 +90,7 @@
         </tbody>
       </table>
     </div>
+
+    <iframe id="detailFrame" class="detailFrame"></iframe>
   </body>
 </html>
