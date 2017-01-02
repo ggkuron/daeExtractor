@@ -7,3 +7,4 @@ gulp.task('stylus', function() {
         .pipe(gulp.dest('static/css/'));
 });
 
+gulp.task('build', ['stylus']);

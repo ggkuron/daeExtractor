@@ -43,10 +43,16 @@ td {
 .flatadd:hover {
   font-weight: bold;
 }
-.object__edit {
+tr.object__edit {
   background: #f2ebd0;
   display: none;
 }
-.object__edit.edit--active {
+tr.object__edit.edit--active {
   display: table-row;
+}
+td.object__edit {
+  display: none;
+}
+td.object__edit.edit--active {
+  display: table-cell;
 }

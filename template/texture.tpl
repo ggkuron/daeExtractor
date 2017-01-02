@@ -17,15 +17,14 @@
                 if(xhr.readyState === 4) this.location = "/";
             };
         }
-        function actionNew() {
+        function actionSave() {
             var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/object/new', true);
+            xhr.open('POST', '/texture/new', true);
             xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
 
             var data = {
-                ObjectId: document.getElementById('txt_id').value,
-                Name: document.getElementById('txt_name').value,
-                FileName: document.getElementById('upd_file').files[0].name
+                id: document.getElementById('txt_id').value,
+                filename: document.getElementById('upd_file').files[0].name
             }
             xhr.send(JSON.stringify(data));
 
@@ -43,8 +42,8 @@
       <table>
         <thead>
             <tr class="table__row">
-                <td class="table__row__header table__row__header--id">ObjectId</td>
-                <td class="table__row__header">Name</td>
+                <td class="table__row__header table__row__header--id">TextureId</td>
+                <td class="table__row__header">FileName</td>
                 <td class="table__row__header" >DELETE</td>
             </tr>
         </thead>
@@ -55,23 +54,13 @@
               </td>
             </tr>
             <tr class="table__row object__edit">
-              <td colspan="3" class="btn flatadd" onclick="editToggle()">
-                  hide
-              </td>
-            </tr>
-            <tr class="table__row object__edit">
               <td class="table__row__item table__row__item--id">
                 <input id="txt_id" type="number"></input>
               </td>
-              <td class="table__row__item" colspan="2">
-                <input id="txt_name" type="text"></input>
-              </td>
-            </tr>
-            <tr class="table__row object__edit">
               <td class="table__row__item">
                 <input id="upd_file" type="file"></input>
               </td>
-              <td class="table__row__item btn" colspan="2" onclick="actionNew();editToggle()">
+              <td class="table__row__item btn" colspan="3" onclick="actionSave();editToggle()">
                 Save
               </td>
             </tr>
@@ -79,10 +68,10 @@
         <tbody>
             {{#objects}}
             <tr class="table__row">
-                <td class="table__row__item table__row__item--id">{{ObjectId}}</td>
-                <td class="table__row__item">{{Name}}</td>
+                <td class="table__row__item table__row__item--id">{{TextureId}}</td>
+                <td class="table__row__item">{{FileName}}</td>
                 <td class="table__row__item btn"
-                    onclick="if(confirm('are you sure?')) actionDelete({{ObjectId}})">
+                    onclick="if(confirm('are you sure?')) actionDelete({{TextureId}})">
                     &#215;
                 </td>
             </tr>
