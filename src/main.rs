@@ -8,7 +8,7 @@ extern crate rusqlite;
 use std::path::Path;
 use collada::document::ColladaDocument;
 
-use nickel::{Nickel, HttpRouter, JsonBody, MediaType, StaticFilesHandler, Response, Request};
+use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request};
 // use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 use nickel::status::StatusCode;
 
@@ -136,7 +136,7 @@ fn open_sqlite() -> Connection {
 }
 
 fn main() {
-    let mut server = Nickel::new();
+
     let conn = open_sqlite();
     match conn.execute(CREATE_TABLE_OBJECT, &[]) 
      .and(conn.execute(CREATE_TABLE_MESH, &[]))
@@ -146,108 +146,107 @@ fn main() {
         Ok(_) => {}
     }
 
-    server.utilize(StaticFilesHandler::new("static"));
-    server.get("/", middleware! { |_, mut rep|
-        let conn = open_sqlite();
-        let mut stmt = conn.prepare("SELECT * FROM Object").unwrap();
-        match stmt.query_map(&[], |row| {
-            Object {
-                ObjectId  : row.get(0),   
-                Name      : row.get(1),    
-                FileName  : row.get(1)
-            }
-        }) {
-            Ok(object_iter) => {
-                let mut data = HashMap::new();
-                let list = object_iter
-                    .map(|x| x.unwrap())
-                    .collect::<Vec<Object>>();
-                data.insert("objects", list);
-                rep.set(StatusCode::Ok);
-                rep.set(MediaType::Html);
-                return rep.render("template/index.tpl", &data);
-            },
-            Err(err) => {
-                println!("Failed: {}", err);
-                rep.set(StatusCode::InternalServerError);
-                format!("{}", err);
-            }
-        };
-    });
-    server.get("/object/:id", middleware! { |req, mut rep|
-        let id = req.param("id").unwrap();
-        let conn = open_sqlite();
-        let mut stmt = conn.prepare("SELECT * FROM Mesh WHERE ObjectId = ?1").unwrap();
-        match stmt.query_map(&[&id], |row| {
-            Mesh {
-                ObjectId  : row.get(0),   
-                MeshId    : row.get(1),
-                TextureId : row.get(2),
-                Name      : row.get(3),    
-            }
-        }) {
-            Ok(object_iter) => {
-                let mut data = HashMap::new();
-                let list = object_iter
-                    .map(|x| x.unwrap())
-                    .collect::<Vec<Mesh>>();
-                data.insert("objects", list);
-                rep.set(StatusCode::Ok);
-                rep.set(MediaType::Html);
-                return rep.render("template/mesh.tpl", &data);
-            },
-            Err(err) => {
-                println!("Failed: {}", err);
-                rep.set(StatusCode::InternalServerError);
-                format!("{}", err);
-            }
-        };
-    });
-    server.get("/textures", middleware! { |_, mut rep|
-        let conn = open_sqlite();
-        let mut stmt = conn.prepare("SELECT * FROM Texture").unwrap();
-        match stmt.query_map(&[], |row| {
-            Texture {
-                TextureId  : row.get(0),
-                Width : row.get(1),
-                Height : row.get(2),
-                Data  : row.get(3),
-                FileName  : row.get(4)
-            }
-        }) {
-            Ok(object_iter) => {
-                let mut data = HashMap::new();
-                let list = object_iter
-                    .map(|x| x.unwrap())
-                    .collect::<Vec<Texture>>();
-                data.insert("objects", list);
-                rep.set(StatusCode::Ok);
-                rep.set(MediaType::Html);
-                return rep.render("template/texture.tpl", &data);
-            },
-            Err(err) => {
-                println!("Failed: {}", err);
-                rep.set(StatusCode::InternalServerError);
-                format!("{}", err);
-            }
-        };
-    });
+    let router = router! {
+        get "/" => |_, mut rep| {
+            rep.set(MediaType::Html);
+            return rep.send_file("template/index.html")
+        }
+        get "/objects" => |_, mut rep| {
+            let conn = open_sqlite();
+            let mut stmt = conn.prepare("SELECT * FROM Object").unwrap();
+            match stmt.query_map(&[], |row| {
+                Object {
+                    ObjectId  : row.get(0),   
+                    Name      : row.get(1),    
+                    FileName  : row.get(1)
+                }
+            }) {
+                Ok(object_iter) => {
+                    let mut data = HashMap::new();
+                    let list = object_iter
+                        .map(|x| x.unwrap())
+                        .collect::<Vec<Object>>();
+                    data.insert("objects", list);
+                    rep.set(StatusCode::Ok);
+                    rep.set(MediaType::Html);
+                    return rep.render("template/object.tpl", &data);
+                },
+                Err(err) => {
+                    println!("Failed: {}", err);
+                    rep.set(StatusCode::InternalServerError);
+                    format!("{}", err);
+                }
+            };
+        }
+        get "/object/:id" => |req, mut rep| {
+            let id = req.param("id").unwrap();
+            let conn = open_sqlite();
+            let mut stmt = conn.prepare("SELECT * FROM Mesh WHERE ObjectId = ?1").unwrap();
+            match stmt.query_map(&[&id], |row| {
+                Mesh {
+                    ObjectId  : row.get(0),   
+                    MeshId    : row.get(1),
+                    TextureId : row.get(2),
+                    Name      : row.get(3),    
+                }
+            }) {
+                Ok(object_iter) => {
+                    let mut data = HashMap::new();
+                    let list = object_iter
+                        .map(|x| x.unwrap())
+                        .collect::<Vec<Mesh>>();
+                    data.insert("objects", list);
+                    rep.set(StatusCode::Ok);
+                    rep.set(MediaType::Html);
+                    return rep.render("template/mesh.tpl", &data);
+                },
+                Err(err) => {
+                    println!("Failed: {}", err);
+                    rep.set(StatusCode::InternalServerError);
+                    format!("{}", err);
+                }
+            };
+        }
+        get "/textures" => |_, mut rep| {
+            let conn = open_sqlite();
+            let mut stmt = conn.prepare("SELECT * FROM Texture").unwrap();
+            match stmt.query_map(&[], |row| {
+                Texture {
+                    TextureId  : row.get(0),
+                    Width : row.get(1),
+                    Height : row.get(2),
+                    Data  : row.get(3),
+                    FileName  : row.get(4)
+                }
+            }) {
+                Ok(object_iter) => {
+                    let mut data = HashMap::new();
+                    let list = object_iter
+                        .map(|x| x.unwrap())
+                        .collect::<Vec<Texture>>();
+                    data.insert("objects", list);
+                    rep.set(StatusCode::Ok);
+                    rep.set(MediaType::Html);
+                    return rep.render("template/texture.tpl", &data);
+                },
+                Err(err) => {
+                    println!("Failed: {}", err);
+                    rep.set(StatusCode::InternalServerError);
+                    format!("{}", err);
+                }
+            };
+        }
 
-    server.post("/texture/new", middleware! { 
-        |res, mut rep| { 
+        post "/texture/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             reg_new_texture(&mut conn, res, &mut rep) 
-        } 
-    });
+        }
 
-    server.post("/object/new", middleware! { 
-        |res, mut rep| { 
+        post "/object/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             reg_new_object(&mut conn, res, &mut rep) 
-        } 
-    });
-    server.post("/object/delete/:id", middleware! { 
-        |req, mut rep| { 
+        }
+        post "/object/delete/:id" => |req, mut rep| { 
             let conn = open_sqlite();
             let id = req.param("id").unwrap();
 
@@ -280,9 +279,31 @@ fn main() {
                 }
             }
         } 
-    });
-    server.post("/mesh/update", middleware! { 
-        |req, mut rep| { 
+
+        post "/texture/delete/:id" => |req, mut rep| { 
+            let conn = open_sqlite();
+            let id = req.param("id").unwrap();
+
+            match conn.execute("
+                DELETE FROM Texture 
+                WHERE 
+                  TextureId = ?1
+                ;", &[&id])
+            {
+                Ok(_) => {
+                    rep.set(StatusCode::Ok);
+                    println!("Deleted");
+                    format!("Deleted")
+                },
+                Err(err) => {
+                    rep.set(StatusCode::InternalServerError);
+                    println!("Failed: {}", err);
+                    format!("Failed")
+                }
+            }
+        } 
+
+        post "/mesh/update" => |req, mut rep| { 
             let conn = open_sqlite();
 
             #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
@@ -314,7 +335,12 @@ fn main() {
                 }
             }
         } 
-    });
+    };
+
+    let mut server = Nickel::new();
+
+    server.utilize(router);
+    server.utilize(StaticFilesHandler::new("static"));
 
     server.listen("127.0.0.1:3000").unwrap();
 }
