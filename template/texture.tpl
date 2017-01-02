@@ -8,13 +8,13 @@
         }
         function actionDelete(id) {
             var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/object/delete/' + id, true);
+            xhr.open('POST', '/texture/delete/' + id, true);
             xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
             var data = { token: "" };
             xhr.send(JSON.stringify(data));
 
             xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/";
+                if(xhr.readyState === 4) this.location.reload(true);
             };
         }
         function actionSave() {
@@ -30,9 +30,8 @@
 
             // http://stackoverflow.com/questions/36408373/posting-form-data-with-nickel-rs-works-the-first-time-returns-404-subsequent-ti
             xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/";
+                if(xhr.readyState === 4) this.location.reload(true);
             };
-
         }
     </script>
   </head>

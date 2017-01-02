@@ -1,0 +1,62 @@
+<html>
+  <head>
+<style>
+  body, html, ul {
+      margin:0;
+      padding:0;
+  }
+  ul {
+      list-style:none;
+  }
+  .topmenu__item {
+      display: inline-block;
+      cursor: pointer;
+      margin: 10px 0 10px 10px;
+      padding: 5px;
+      border: 1px solid rgb(180,180,180);
+      font-size: 1.2em
+  }
+  .topmenu__item.active {
+      background: rgb(240, 240, 240);
+  }
+
+  iframe {
+    position: absolute;
+    width: 100%;
+    border: 0;
+    top: 40px;
+  }
+  .tab__item {
+      display: none;
+  }
+  li.tab__item.active {
+      display: list-item;
+  }
+</style>
+<script>
+    function setActive(className) {
+        Array.from(document.getElementsByClassName('tab__item'))
+                 .forEach(e => e.classList.remove('active'));
+        Array.from(document.getElementsByClassName('topmenu__item'))
+                 .forEach(e => e.classList.remove('active'));
+        Array.from(document.getElementsByClassName(className))
+                 .forEach(e => e.classList.add('active'));
+    }
+</script>
+  </head>
+  <body>
+      <ul class="topmenu">
+          <li class="topmenu__item active object" onclick="setActive('object')">Object</li>
+          <li class="topmenu__item texture" onclick="setActive('texture')">Texture</li>
+      </ul>
+
+      <ul>
+          <li class="tab__item active object">
+             <iframe src="/objects"></iframe>
+          </li>
+          <li class="tab__item texture">
+             <iframe src="/textures"></iframe>
+          </li>
+      </ul>
+  </body>
+</html>
