@@ -22,14 +22,7 @@ struct Object {
     Name:      String,
     FileName:  String
 }
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-#[allow(non_snake_case)]
-struct Mesh {
-    ObjectId: i32,
-    MeshId:   i32,
-    TextureId: i32,
-    Name:     String,
-}
+
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
 #[allow(non_snake_case)]
 struct Texture {
@@ -179,15 +172,25 @@ fn main() {
             };
         }
         get "/object/:id" => |req, mut rep| {
+#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[allow(non_snake_case)]
+struct Mesh {
+    ObjectId: i32,
+    MeshId:   i32,
+    TextureId: i32,
+    Name:     String,
+    VertexCount: i32
+}
             let id = req.param("id").unwrap();
             let conn = open_sqlite();
-            let mut stmt = conn.prepare("SELECT * FROM Mesh WHERE ObjectId = ?1").unwrap();
+            let mut stmt = conn.prepare("SELECT *, (SELECT COUNT(*) FROM MeshVertex AS V WHERE V.ObjectId = Mesh.ObjectId and V.MeshId = Mesh.MeshId) AS Vertex FROM Mesh WHERE ObjectId = ?1").unwrap();
             match stmt.query_map(&[&id], |row| {
                 Mesh {
                     ObjectId  : row.get(0),   
                     MeshId    : row.get(1),
                     TextureId : row.get(2),
                     Name      : row.get(3),    
+                    VertexCount: row.get(4),
                 }
             }) {
                 Ok(object_iter) => {

@@ -45,6 +45,7 @@
                 <td class="table__row__header table__row__header--id">ObjectId</td>
                 <td class="table__row__header table__row__header--id">MeshId</td>
                 <td class="table__row__header">Name</td>
+                <td class="table__row__header table__row__header--number">VertexCount</td>
                 <td class="table__row__header table__row__item--id">TextureId</td>
                 <td class="table__row__header" >EDIT</td>
                 <td class="table__row__header" >DELETE</td>
@@ -56,6 +57,7 @@
                 <td class="table__row__item table__row__item--id">{{ObjectId}}</td>
                 <td class="table__row__item table__row__item--id">{{MeshId}}</td>
                 <td class="table__row__item">{{Name}}</td>
+                <td class="table__row__item table__row__item--number">{{VertexCount}}</td>
                 <td class="table__row__item table__row__item--id object__edit edit--active">{{TextureId}}</td>
                 <td class="table__row__item table__row__item--id object__edit"><input id="edit_texture__{{MeshId}}" type="number" value="{{TextureId}}"></input></td>
                 <td class="table__row__item btn object__edit edit--active"

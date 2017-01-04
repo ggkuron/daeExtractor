@@ -29,6 +29,10 @@ td {
 .table__row__header--id {
   width: 5em;
 }
+.table__row__item--number,
+.table__row__header--number {
+  text-align: right;
+}
 .table__row__header {
   background: #f0f0f0;
 }
@@ -76,18 +80,18 @@ td.object__edit.edit--active {
 .topmenu__item.active {
   background: #f0f0f0;
 }
+.tab__item {
+  display: none;
+}
+li.tab__item.active {
+  display: list-item;
+}
 .tab__item__frame {
   position: absolute;
   width: 100%;
   border: 0;
   top: 50px;
   height: 600px;
-}
-.tab__item {
-  display: none;
-}
-li.tab__item.active {
-  display: list-item;
 }
 .detailFrame {
   width: 100%;

@@ -21,6 +21,8 @@ td
     width: 100%
     &--id
       width: 5em
+    &--number
+      text-align: right
   &__header 
     background: rgb(240, 240, 240)
   &__item:first-child 
@@ -59,16 +61,16 @@ td.object__edit
     &.active 
       background: rgb(240, 240, 240)
 
-.tab__item__frame 
-  position: absolute
-  width: 100%
-  border: 0
-  top: 50px
-  height: 600px
 .tab__item 
   display: none
   li&.active 
     display: list-item
+  &__frame 
+    position: absolute
+    width: 100%
+    border: 0
+    top: 50px
+    height: 600px
 .detailFrame 
   width: 100%
   height: 300px
