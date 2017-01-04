@@ -395,6 +395,7 @@ fn reg_new_object(conn: &mut Connection, req: &mut Request, rep: &mut Response) 
                 let mut errors = Vec::new();
 
                 for (mesh_no, obj) in collada_objs.objects.iter().enumerate() {
+                    let mesh_no = mesh_no + 1;
                     println!("{}", mesh_no);
 
                     match insert_mesh(&tx, json.ObjectId, mesh_no as i32, &obj.name) {
