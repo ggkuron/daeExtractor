@@ -14,7 +14,7 @@
             xhr.send(JSON.stringify(data));
 
             xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/";
+                if(xhr.readyState === 4) this.location.reload(true);
             };
         }
         function actionNew() {
@@ -31,7 +31,7 @@
 
             // http://stackoverflow.com/questions/36408373/posting-form-data-with-nickel-rs-works-the-first-time-returns-404-subsequent-ti
             xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/";
+                if(xhr.readyState === 4) this.location.reload(true);
             };
 
         }
