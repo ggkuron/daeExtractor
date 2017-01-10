@@ -1,6 +1,5 @@
 extern crate rustc_serialize;
 #[macro_use] extern crate nickel;
-// extern crate nickel_sqlite;
 extern crate collada;
 extern crate png;
 extern crate rusqlite;
@@ -9,7 +8,6 @@ use std::path::Path;
 use collada::document::ColladaDocument;
 
 use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request};
-// use nickel_sqlite::{SqliteMiddleware, SqliteRequestExtensions};
 use nickel::status::StatusCode;
 
 use std::collections::HashMap;
@@ -200,15 +198,15 @@ fn main() {
             };
         }
         get "/object/:id" => |req, mut rep| {
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-#[allow(non_snake_case)]
-struct Mesh {
-    ObjectId: i32,
-    MeshId:   i32,
-    TextureId: i32,
-    Name:     String,
-    VertexCount: i32
-}
+            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+            #[allow(non_snake_case)]
+            struct Mesh {
+                ObjectId: i32,
+                MeshId:   i32,
+                TextureId: i32,
+                Name:     String,
+                VertexCount: i32
+            }
             let id = req.param("id").unwrap();
             let conn = open_sqlite();
             let mut stmt = conn.prepare("SELECT *, (SELECT COUNT(*) FROM MeshVertex AS V WHERE V.ObjectId = Mesh.ObjectId and V.MeshId = Mesh.MeshId) AS Vertex FROM Mesh WHERE ObjectId = ?1").unwrap();
@@ -539,7 +537,7 @@ fn open_texture(path: &std::path::Path) -> Image
 }
 
 fn insert_vertex(tx: &rusqlite::Transaction, object_id: i32, mesh_id: i32, v: &Vertex, inx: i32) -> Result<i32, rusqlite::Error> {
-   let stmt = tx.prepare("
+   tx.prepare("
 INSERT INTO MeshVertex 
   ( ObjectId     ,
     MeshId       ,
@@ -572,7 +570,7 @@ VALUES
 }
 
 fn insert_mesh(tx: &rusqlite::Transaction, object_id: i32, mesh_id: i32, name: &str) -> Result<i32, rusqlite::Error> {
-   let stmt = tx.prepare("
+   tx.prepare("
 INSERT INTO Mesh 
   ( ObjectId
   , MeshId  
