@@ -122,6 +122,33 @@ CREATE TABLE MeshVertex
     PRIMARY KEY (ObjectId, MeshId, IndexNo)
   );
 ";
+const CREATE_TABLE_JOINT: &'static str = "
+CREATE TABLE Joint 
+  ( ObjectId     INTEGER NOT NULL,
+    JointIndex   INTEGER NOT NULL,
+    Name         TEXT  NOT NULL,
+    ParentIndex  INTEGER NOT NULL,
+    InverseBindPose11  REAL NOT NULL,
+    InverseBindPose21  REAL NOT NULL,
+    InverseBindPose31  REAL NOT NULL,
+    InverseBindPose41  REAL NOT NULL,
+    InverseBindPose12  REAL NOT NULL,
+    InverseBindPose22  REAL NOT NULL,
+    InverseBindPose32  REAL NOT NULL,
+    InverseBindPose42  REAL NOT NULL,
+    InverseBindPose13  REAL NOT NULL,
+    InverseBindPose23  REAL NOT NULL,
+    InverseBindPose33  REAL NOT NULL,
+    InverseBindPose43  REAL NOT NULL,
+    InverseBindPose14  REAL NOT NULL,
+    InverseBindPose24  REAL NOT NULL,
+    InverseBindPose34  REAL NOT NULL,
+    InverseBindPose44  REAL NOT NULL,
+    PRIMARY KEY (ObjectId, JointIndex)
+  );
+";
+
+
 
 fn open_sqlite() -> Connection {
     let db_file = "file.db";
@@ -134,7 +161,8 @@ fn main() {
     match conn.execute(CREATE_TABLE_OBJECT, &[]) 
      .and(conn.execute(CREATE_TABLE_MESH, &[]))
      .and(conn.execute(CREATE_TABLE_MESHVERTEX, &[]))
-     .and(conn.execute(CREATE_TABLE_TEXTURE, &[])) {
+     .and(conn.execute(CREATE_TABLE_TEXTURE, &[])) 
+     .and(conn.execute(CREATE_TABLE_JOINT, &[])){
         Err(err) => { println!("{}", err) },
         Ok(_) => {}
     }
@@ -247,7 +275,15 @@ struct Mesh {
 
         post "/object/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
-            reg_new_object(&mut conn, res, &mut rep) 
+            let json = res.json_as::<Object>().unwrap();
+            match reg_new_object(&mut conn, json) {
+               Ok(_) => {
+                   rep.set(StatusCode::Ok);
+                   format!("Success")
+               },
+               Err(err) => { format!("{}", err) }
+            }
+
         }
         post "/object/delete/:id" => |req, mut rep| { 
             let conn = open_sqlite();
@@ -382,64 +418,72 @@ fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response
         }
 }
 
-fn reg_new_object(conn: &mut Connection, req: &mut Request, rep: &mut Response) -> String {
-        let json = req.json_as::<Object>().unwrap();
-        let tx = conn.transaction().unwrap();
+fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
+    let tx = conn.transaction().unwrap();
 
-        match insert_object(&tx, json.ObjectId, &json.Name) {
-            Ok(_) => {
-                let filepath = format!("assets/dae/{}", json.FileName);
-                let collada_doc = ColladaDocument::from_path(&Path::new(filepath.as_str())).expect("failed to load dae");
-                let collada_objs = collada_doc.get_obj_set().expect("cannot read obj set");
+    match insert_object(&tx, json.ObjectId, &json.Name) {
+        Ok(_) => {
+            let filepath = format!("assets/dae/{}", json.FileName);
+            let collada_doc = ColladaDocument::from_path(&Path::new(filepath.as_str())).expect("failed to load dae");
+            let collada_objs = collada_doc.get_obj_set().expect("cannot read obj set");
 
-                let mut errors = Vec::new();
+            let mut errors = Vec::new();
 
-                for (mesh_no, obj) in collada_objs.objects.iter().enumerate() {
-                    let mesh_no = mesh_no + 1;
-                    println!("{}", mesh_no);
+            for (mesh_no, obj) in collada_objs.objects.iter().enumerate() {
+                let mesh_no = mesh_no + 1;
+                println!("{}", mesh_no);
 
-                    match insert_mesh(&tx, json.ObjectId, mesh_no as i32, &obj.name) {
-                        Ok(_) => {
-                            for geom in obj.geometry.iter() {
-                               let mut i = 0;
-                               let mut add = |a: collada::VTNIndex| {
-                                   println!("{}", i);
-                                   i += 1;
-                                   insert_vertex(&tx, json.ObjectId, mesh_no as i32, &vtn_to_vertex(a, obj), i)
-                               };
+                match insert_mesh(&tx, json.ObjectId, mesh_no as i32, &obj.name) {
+                    Ok(_) => {
+                        for geom in obj.geometry.iter() {
+                           let mut i = 0;
+                           let mut add = |a: collada::VTNIndex| {
+                               i += 1;
+                               insert_vertex(&tx, json.ObjectId, mesh_no as i32, &vtn_to_vertex(a, obj), i)
+                           };
 
-                               for shape in geom.shapes.iter() {
-                                   match shape {
-                                       &collada::Shape::Triangle(a, b, c) => {
-                                           match add(a).and(add(b)).and(add(c)) {
-                                               Ok(_) => {},
-                                               Err(err) => errors.push(format!("{}", err))
-                                           }
+                           for shape in geom.shapes.iter() {
+                               match shape {
+                                   &collada::Shape::Triangle(a, b, c) => {
+                                       match add(a).and(add(b)).and(add(c)) {
+                                           Ok(_) => {},
+                                           Err(err) => errors.push(format!("{}", err))
                                        }
-                                       _ => errors.push(format!("not triangulated"))
                                    }
+                                   _ => errors.push(format!("not triangulated"))
                                }
-                            }
-                        },
-                        Err(err) => errors.push(format!("Could not insert a mesh entry: {}", err))
+                           }
+                        }
+                    },
+                    Err(err) => errors.push(format!("Could not insert a mesh entry: {}", err))
+                }
+            }
+
+            let skeltons = collada_doc.get_skeletons().expect("cannot read skeleton");
+            for skele in skeltons {
+                for (i, j) in skele.joints.iter().enumerate() {
+                    match insert_joint(&tx, json.ObjectId, i as i32, &j.name,  j.parent_index as i32, j.inverse_bind_pose) {
+                        Ok(_) => {},
+                        Err(err) => errors.push(format!("{}", err))
                     }
                 }
+            }
+
+            if errors.len() == 0 {
                 match tx.commit() {
                    Ok(_) => {},
-                   Err(err) => errors.push(format!("{}", err))
+                   Err(err) => { errors.push(format!("{}", err)) }
                 }
+            }
 
-                if errors.len() == 0 {
-                    rep.set(StatusCode::Ok);
-                    format!("Success")
-                } else {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("{}", errors.join("\n"));
-                    format!("Failed")
-                }
-            },
-            Err(err) => format!("Could not insert a new entry: {}", err),
-        }
+            if errors.len() == 0 {
+                Ok(())
+            } else {
+                Err(errors.join("\n"))
+            }
+        },
+        Err(err) => Err(format!("{}", err))
+    }
 }
 
 fn vtn_to_vertex(a: collada::VTNIndex, obj: &collada::Object) -> Vertex {
@@ -518,13 +562,13 @@ INSERT INTO MeshVertex
     JointWeight4 )
 VALUES
   (?1 ,?2 ,?3 ,?4 ,?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18 ,?19)
-");
-   stmt.and_then(|mut s| s.execute(&[&object_id, &mesh_id, &inx,
-                  &(v.pos[0] as f64), &(v.pos[1] as f64), &(v.pos[2] as f64),
-                  &(v.normal[0] as f64), &(v.normal[1] as f64), &(v.normal[2] as f64),
-                  &(v.uv[0] as f64), &(v.uv[1] as f64),
-                  &0,&0,&0,&0,
-                  &0,&0,&0,&0]))
+").and_then(|mut s| s.execute(&[&object_id, &mesh_id, &inx,
+                                &(v.pos[0] as f64), &(v.pos[1] as f64), &(v.pos[2] as f64),
+                                &(v.normal[0] as f64), &(v.normal[1] as f64), &(v.normal[2] as f64),
+                                &(v.uv[0] as f64), &(v.uv[1] as f64),
+                                &(v.joint_indices[0]),&(v.joint_indices[1]),&(v.joint_indices[2]),&(v.joint_indices[3]),
+                                &(v.joint_weights[0] as f64),&(v.joint_weights[1] as f64),&(v.joint_weights[2] as f64),&(v.joint_weights[3] as f64)
+                               ]))
 }
 
 fn insert_mesh(tx: &rusqlite::Transaction, object_id: i32, mesh_id: i32, name: &str) -> Result<i32, rusqlite::Error> {
@@ -537,17 +581,62 @@ INSERT INTO Mesh
   )
 VALUES 
   (?1, ?2, 0, ?3);
-");
-   stmt.and_then(|mut s| s.execute(&[&object_id, &mesh_id, &name]))
+").and_then(|mut s| s.execute(&[&object_id, &mesh_id, &name]))
 }
 
 fn insert_object(tx: &rusqlite::Transaction, object_id: i32, name: &str) -> Result<i32, rusqlite::Error> {
-   let stmt = tx.prepare("
+   tx.prepare("
 INSERT INTO Object 
   (ObjectId, Name) 
 VALUES 
   (?1, ?2);
-");
-   stmt.and_then(|mut s| s.execute(&[&object_id, &name]))
+").and_then(|mut s| s.execute(&[&object_id, &name]))
 }
+
+fn insert_joint(tx: &rusqlite::Transaction, object_id: i32, index: i32, name: &str, parent: i32, inverse: [[f32;4];4]) -> Result<i32, rusqlite::Error> {
+   tx.prepare("
+INSERT INTO Joint
+  ( ObjectId     ,
+    JointIndex   ,
+    Name         ,
+    ParentIndex  ,
+    InverseBindPose11  ,
+    InverseBindPose21  ,
+    InverseBindPose31  ,
+    InverseBindPose41  ,
+    InverseBindPose12  ,
+    InverseBindPose22  ,
+    InverseBindPose32  ,
+    InverseBindPose42  ,
+    InverseBindPose13  ,
+    InverseBindPose23  ,
+    InverseBindPose33  ,
+    InverseBindPose43  ,
+    InverseBindPose14  ,
+    InverseBindPose24  ,
+    InverseBindPose34  ,
+    InverseBindPose44  
+  )
+VALUES
+  (?1 ,?2 ,?3 ,?4 ,?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18 ,?19, ?20)
+").and_then(|mut s| s.execute(&[&object_id, &index, &name, &parent,
+                                &(inverse[0][0] as f64), 
+                                &(inverse[0][1] as f64), 
+                                &(inverse[0][2] as f64), 
+                                &(inverse[0][3] as f64), 
+                                &(inverse[1][0] as f64), 
+                                &(inverse[1][1] as f64), 
+                                &(inverse[1][2] as f64), 
+                                &(inverse[1][3] as f64), 
+                                &(inverse[2][0] as f64), 
+                                &(inverse[2][1] as f64), 
+                                &(inverse[2][2] as f64), 
+                                &(inverse[2][3] as f64), 
+                                &(inverse[3][0] as f64), 
+                                &(inverse[3][1] as f64), 
+                                &(inverse[3][2] as f64), 
+                                &(inverse[3][3] as f64), 
+                               ]))
+}
+
 
