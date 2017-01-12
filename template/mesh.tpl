@@ -38,7 +38,6 @@
   </head>
   <body>
     <div class="table">
-      <h2 class="table__title">Mesh Table</h2>
       <table>
         <thead>
             <tr class="table__row">

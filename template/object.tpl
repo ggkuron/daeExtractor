@@ -39,7 +39,6 @@
   </head>
   <body>
     <div class="table">
-      <h2 class="table__title">Object Table</h2>
       <table>
         <thead>
             <tr class="table__row">
