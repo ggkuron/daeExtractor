@@ -1,38 +1,21 @@
 <html>
   <head>
     <link rel="stylesheet" type="text/css" href="/css/main.css">
+    <script src="/js/table.js"></script>
     <script>
         function editToggle(id) {
-            Array.from(document.querySelectorAll('.table__row--' + id + ' .object__edit'))
+            Array.from(document.querySelectorAll(['.table__row--' + id, '.object__edit'].join(' ')))
                  .forEach(e => e.classList.toggle('edit--active'))
         }
         function actionDelete(id) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/mesh/delete/' + id, true);
-            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-            var data = { token: "" };
-            xhr.send(JSON.stringify(data));
-
-            xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/";
-            };
+            postJSON('/mesh/delete/' + id, { token: "" });
         }
         function actionUpdate(objectId, meshId, textureId) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/mesh/update', true);
-            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-
-            var data = {
-                ObjectId: objectId,
-                MeshId: meshId,
-                TextureId: textureId
-            }
-            xhr.send(JSON.stringify(data));
-
-            // http://stackoverflow.com/questions/36408373/posting-form-data-with-nickel-rs-works-the-first-time-returns-404-subsequent-ti
-            xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location = "/object/" + objectId;
-            };
+            postJSON('/mesh/update', {
+                         ObjectId: objectId,
+                         MeshId: meshId,
+                         TextureId: textureId
+                     });
         }
     </script>
   </head>

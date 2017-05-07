@@ -1,39 +1,23 @@
 <html>
   <head>
     <link rel="stylesheet" type="text/css" href="/css/main.css">
+    <script src="/js/table.js"></script>
     <script>
         function editToggle() {
             Array.from(document.getElementsByClassName('object__edit'))
                  .forEach(e => e.classList.toggle('edit--active'))
         }
         function actionDelete(id) {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/object/delete/' + id, true);
-            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-            var data = { token: "" };
-            xhr.send(JSON.stringify(data));
-
-            xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location.reload(true);
-            };
+            postJSON('/object/delete/' + id,
+                     { token: "" });
         }
         function actionNew() {
-            var xhr = new XMLHttpRequest();
-            xhr.open('POST', '/object/new', true);
-            xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-
-            var data = {
-                ObjectId: document.getElementById('txt_id').value,
-                Name: document.getElementById('txt_name').value,
-                FileName: document.getElementById('upd_file').files[0].name
-            }
-            xhr.send(JSON.stringify(data));
-
-            // http://stackoverflow.com/questions/36408373/posting-form-data-with-nickel-rs-works-the-first-time-returns-404-subsequent-ti
-            xhr.onload = () => { 
-                if(xhr.readyState === 4) this.location.reload(true);
-            };
-
+            postJSON('/object/new', 
+                     {
+                         ObjectId: document.getElementById('txt_id').value,
+                         Name: document.getElementById('txt_name').value,
+                         FileName: document.getElementById('upd_file').files[0].name
+                     });
         }
     </script>
   </head>
