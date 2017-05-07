@@ -126,6 +126,22 @@ CREATE TABLE Joint
     JointIndex   INTEGER NOT NULL,
     Name         TEXT  NOT NULL,
     ParentIndex  INTEGER NOT NULL,
+    BindPose11,
+    BindPose12,
+    BindPose13,
+    BindPose14,
+    BindPose21,
+    BindPose22,
+    BindPose23,
+    BindPose24,
+    BindPose31,
+    BindPose32,
+    BindPose33,
+    BindPose34,
+    BindPose41,
+    BindPose42,
+    BindPose43,
+    BindPose44,
     InverseBindPose11  REAL NOT NULL,
     InverseBindPose21  REAL NOT NULL,
     InverseBindPose31  REAL NOT NULL,
@@ -303,6 +319,11 @@ fn main() {
                 WHERE 
                   ObjectId = ?1
                 ;", &[&id]))
+                .and(conn.execute("
+                DELETE FROM JOINT
+                WHERE 
+                    ObjectId = ?1
+                ;", &[&id]))
             {
                 Ok(_) => {
                     rep.set(StatusCode::Ok);
@@ -457,12 +478,13 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
                 }
             }
 
-            let skeltons = collada_doc.get_skeletons().expect("cannot read skeleton");
-            for skele in skeltons {
-                for (i, j) in skele.joints.iter().enumerate() {
-                    match insert_joint(&tx, json.ObjectId, i as i32, &j.name,  j.parent_index as i32, j.inverse_bind_pose) {
-                        Ok(_) => {},
-                        Err(err) => errors.push(format!("{}", err))
+            if let Some(skeltons) = collada_doc.get_skeletons() {
+                for skele in skeltons {
+                    println!("{}", skele.joints.len());
+                    for (i, j) in skele.joints.iter().enumerate() {
+                        insert_joint(&tx, json.ObjectId, i as i32, &j.name,  j.parent_index as i32, 
+                                     skele.bind_poses.get(i).unwrap(),
+                                     j.inverse_bind_pose).unwrap();
                     }
                 }
             }
@@ -591,48 +613,85 @@ VALUES
 ").and_then(|mut s| s.execute(&[&object_id, &name]))
 }
 
-fn insert_joint(tx: &rusqlite::Transaction, object_id: i32, index: i32, name: &str, parent: i32, inverse: [[f32;4];4]) -> Result<i32, rusqlite::Error> {
+fn insert_joint(tx: &rusqlite::Transaction, object_id: i32, index: i32, name: &str, parent: i32, 
+                bind: &[[f32;4];4], inverse: [[f32;4];4]) 
+                -> Result<i32, rusqlite::Error> {
    tx.prepare("
 INSERT INTO Joint
   ( ObjectId     ,
     JointIndex   ,
     Name         ,
     ParentIndex  ,
+    BindPose11,
+    BindPose12,
+    BindPose13,
+    BindPose14,
+    BindPose21,
+    BindPose22,
+    BindPose23,
+    BindPose24,
+    BindPose31,
+    BindPose32,
+    BindPose33,
+    BindPose34,
+    BindPose41,
+    BindPose42,
+    BindPose43,
+    BindPose44,
     InverseBindPose11  ,
-    InverseBindPose21  ,
-    InverseBindPose31  ,
-    InverseBindPose41  ,
     InverseBindPose12  ,
-    InverseBindPose22  ,
-    InverseBindPose32  ,
-    InverseBindPose42  ,
     InverseBindPose13  ,
-    InverseBindPose23  ,
-    InverseBindPose33  ,
-    InverseBindPose43  ,
     InverseBindPose14  ,
+    InverseBindPose21  ,
+    InverseBindPose22  ,
+    InverseBindPose23  ,
     InverseBindPose24  ,
+    InverseBindPose31  ,
+    InverseBindPose32  ,
+    InverseBindPose33  ,
     InverseBindPose34  ,
+    InverseBindPose41  ,
+    InverseBindPose42  ,
+    InverseBindPose43  ,
     InverseBindPose44  
   )
 VALUES
-  (?1 ,?2 ,?3 ,?4 ,?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18 ,?19, ?20)
+  (?1 ,?2 ,?3 ,?4 ,
+   ?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18 ,?19, ?20,
+   ?21 ,?22 ,?23 ,?24 ,?25 ,?26 ,?27 ,?28 ,?29 ,?30 ,?31 ,?32 ,?33 ,?34 ,?35, ?36
+  )
 ").and_then(|mut s| s.execute(&[&object_id, &index, &name, &parent,
+                                &(bind[0][0] as f64), 
+                                &(bind[1][0] as f64), 
+                                &(bind[2][0] as f64), 
+                                &(bind[3][0] as f64), 
+                                &(bind[0][1] as f64), 
+                                &(bind[1][1] as f64), 
+                                &(bind[2][1] as f64), 
+                                &(bind[3][1] as f64), 
+                                &(bind[0][2] as f64), 
+                                &(bind[1][2] as f64), 
+                                &(bind[2][2] as f64), 
+                                &(bind[3][2] as f64), 
+                                &(bind[0][3] as f64), 
+                                &(bind[1][3] as f64), 
+                                &(bind[2][3] as f64), 
+                                &(bind[3][3] as f64), 
                                 &(inverse[0][0] as f64), 
-                                &(inverse[0][1] as f64), 
-                                &(inverse[0][2] as f64), 
-                                &(inverse[0][3] as f64), 
                                 &(inverse[1][0] as f64), 
-                                &(inverse[1][1] as f64), 
-                                &(inverse[1][2] as f64), 
-                                &(inverse[1][3] as f64), 
                                 &(inverse[2][0] as f64), 
-                                &(inverse[2][1] as f64), 
-                                &(inverse[2][2] as f64), 
-                                &(inverse[2][3] as f64), 
                                 &(inverse[3][0] as f64), 
+                                &(inverse[0][1] as f64), 
+                                &(inverse[1][1] as f64), 
+                                &(inverse[2][1] as f64), 
                                 &(inverse[3][1] as f64), 
+                                &(inverse[0][2] as f64), 
+                                &(inverse[1][2] as f64), 
+                                &(inverse[2][2] as f64), 
                                 &(inverse[3][2] as f64), 
+                                &(inverse[0][3] as f64), 
+                                &(inverse[1][3] as f64), 
+                                &(inverse[2][3] as f64), 
                                 &(inverse[3][3] as f64), 
                                ]))
 }
