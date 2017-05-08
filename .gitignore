@@ -1,0 +1,5 @@
+Cargo.lock
+assets/
+file.db
+node_modules/
+target/
