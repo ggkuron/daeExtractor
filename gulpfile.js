@@ -7,4 +7,10 @@ gulp.task('stylus', function() {
         .pipe(gulp.dest('static/css/'));
 });
 
+gulp.task('babel', function() {
+    gulp.src('src/js/*.js')
+        .pipe(gulp.dest('static/js/'));
+});
+
+
 gulp.task('build', ['stylus']);
