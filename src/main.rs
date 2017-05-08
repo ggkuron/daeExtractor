@@ -30,6 +30,18 @@ struct Texture {
     Data:      Vec<u8>,
     FileName:  String,
 }
+
+#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[allow(non_snake_case)]
+struct Animation {
+    AnimationId:  i32,
+    ObjectId: i32,
+    Name:      String,
+    FileName:  String
+}
+
+
+
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
 #[allow(non_snake_case)]
 struct MeshVertex {
@@ -69,7 +81,7 @@ impl Default for Vertex {
             normal: [0.0; 3],
             uv: [0.0; 2],
             joint_indices: [0; 4],
-            joint_weights: [0.0; 4]
+            joint_weights: [1.0; 4]
         }
     }
 }
@@ -126,22 +138,22 @@ CREATE TABLE Joint
     JointIndex   INTEGER NOT NULL,
     Name         TEXT  NOT NULL,
     ParentIndex  INTEGER NOT NULL,
-    BindPose11,
-    BindPose12,
-    BindPose13,
-    BindPose14,
-    BindPose21,
-    BindPose22,
-    BindPose23,
-    BindPose24,
-    BindPose31,
-    BindPose32,
-    BindPose33,
-    BindPose34,
-    BindPose41,
-    BindPose42,
-    BindPose43,
-    BindPose44,
+    BindPose11   REAL NOT NULL,
+    BindPose12   REAL NOT NULL,
+    BindPose13   REAL NOT NULL,
+    BindPose14   REAL NOT NULL,
+    BindPose21   REAL NOT NULL,
+    BindPose22   REAL NOT NULL,
+    BindPose23   REAL NOT NULL,
+    BindPose24   REAL NOT NULL,
+    BindPose31   REAL NOT NULL,
+    BindPose32   REAL NOT NULL,
+    BindPose33   REAL NOT NULL,
+    BindPose34   REAL NOT NULL,
+    BindPose41   REAL NOT NULL,
+    BindPose42   REAL NOT NULL,
+    BindPose43   REAL NOT NULL,
+    BindPose44   REAL NOT NULL,
     InverseBindPose11  REAL NOT NULL,
     InverseBindPose21  REAL NOT NULL,
     InverseBindPose31  REAL NOT NULL,
@@ -161,6 +173,33 @@ CREATE TABLE Joint
     PRIMARY KEY (ObjectId, JointIndex)
   );
 ";
+const CREATE_TABLE_ANIMATION: &'static str = "
+CREATE TABLE Animation 
+  ( 
+    AnimationId    INTEGER NOT NULL,
+    ObjectId       INTEGER NOT NULL,
+    JointIndex     INTEGER NOT NULL,
+    SampleTime     REAL NOT NULL,
+    SamplePose11   REAL NOT NULL,
+    SamplePose12   REAL NOT NULL,
+    SamplePose13   REAL NOT NULL,
+    SamplePose14   REAL NOT NULL,
+    SamplePose21   REAL NOT NULL,
+    SamplePose22   REAL NOT NULL,
+    SamplePose23   REAL NOT NULL,
+    SamplePose24   REAL NOT NULL,
+    SamplePose31   REAL NOT NULL,
+    SamplePose32   REAL NOT NULL,
+    SamplePose33   REAL NOT NULL,
+    SamplePose34   REAL NOT NULL,
+    SamplePose41   REAL NOT NULL,
+    SamplePose42   REAL NOT NULL,
+    SamplePose43   REAL NOT NULL,
+    SamplePose44   REAL NOT NULL,
+    Name         TEXT  NOT NULL,
+    PRIMARY KEY (ObjectId, AnimationId, SampleTime, JointIndex)
+  );
+";
 
 
 
@@ -172,13 +211,14 @@ fn open_sqlite() -> Connection {
 fn main() {
 
     let conn = open_sqlite();
-    match conn.execute(CREATE_TABLE_OBJECT, &[]) 
+    if let Err(err) =  conn.execute(CREATE_TABLE_OBJECT, &[]) 
      .and(conn.execute(CREATE_TABLE_MESH, &[]))
      .and(conn.execute(CREATE_TABLE_MESHVERTEX, &[]))
      .and(conn.execute(CREATE_TABLE_TEXTURE, &[])) 
-     .and(conn.execute(CREATE_TABLE_JOINT, &[])){
-        Err(err) => { println!("{}", err) },
-        Ok(_) => {}
+     .and(conn.execute(CREATE_TABLE_JOINT, &[]))
+     .and(conn.execute(CREATE_TABLE_ANIMATION, &[]))
+    {
+        println!("{}", err) 
     }
 
     let router = router! {
@@ -285,6 +325,19 @@ fn main() {
         post "/texture/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             reg_new_texture(&mut conn, res, &mut rep) 
+        }
+
+        post "/animation/new" => |res, mut rep| { 
+            let mut conn = open_sqlite();
+            let json = res.json_as::<Animation>().unwrap();
+            match reg_new_animation(&mut conn, json) {
+               Ok(_) => {
+                   rep.set(StatusCode::Ok);
+                   format!("Success")
+               },
+               Err(err) => { format!("{}", err) }
+            }
+
         }
 
         post "/object/new" => |res, mut rep| { 
@@ -464,9 +517,8 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
                            for shape in geom.shapes.iter() {
                                match shape {
                                    &collada::Shape::Triangle(a, b, c) => {
-                                       match add(a).and(add(b)).and(add(c)) {
-                                           Ok(_) => {},
-                                           Err(err) => errors.push(format!("{}", err))
+                                       if let Err(err) =  add(a).and(add(b)).and(add(c)) {
+                                           errors.push(format!("{}", err))
                                        }
                                    }
                                    _ => errors.push(format!("not triangulated"))
@@ -490,9 +542,8 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
             }
 
             if errors.len() == 0 {
-                match tx.commit() {
-                   Ok(_) => {},
-                   Err(err) => { errors.push(format!("{}", err)) }
+                if let Err(err) = tx.commit() {
+                   errors.push(format!("{}", err)) 
                 }
             }
 
@@ -503,6 +554,37 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
             }
         },
         Err(err) => Err(format!("{}", err))
+    }
+}
+
+fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), String> {
+    let tx = conn.transaction().unwrap();
+    let mut errors = Vec::new();
+
+    let filepath = format!("assets/dae/{}", json.FileName);
+    let collada_doc = ColladaDocument::from_path(&Path::new(filepath.as_str())).expect("failed to load dae");
+    for a in collada_doc.get_animations().iter() {
+        let mut stmt = tx.prepare("SELECT JointIndex FROM Mesh WHERE ObjectId = ?1 and Name = ?2").unwrap();
+        let joint_index = match stmt.query_map(&[&json.ObjectId, &a.target], |row| { row.get::<i32,i32>(0) }) { 
+            Ok(itr) => {
+                let e = itr.map(|i| i.unwrap()).collect::<Vec<i32>>();
+                if e.len() == 0 { 0 } else { e.get(0).unwrap().clone() }
+            },
+            _ => 0
+        };
+        for (i, time) in a.sample_times.iter().enumerate()
+        {
+            let pose = a.sample_poses.get(i).unwrap();
+            if let Err(err) = insert_animation(&tx, json.AnimationId, json.ObjectId, time, joint_index, &a.target, pose) {
+                errors.push(format!("{}", err))
+            }
+        }
+    }
+
+    if errors.len() == 0 {
+        Ok(())
+    } else {
+        Err(errors.join("\n"))
     }
 }
 
@@ -694,6 +776,60 @@ VALUES
                                 &(inverse[2][3] as f64), 
                                 &(inverse[3][3] as f64), 
                                ]))
+}
+
+fn insert_animation(tx: &rusqlite::Transaction, animation_id: i32, object_id: i32, time: &f32, joint_index: i32, name: &str, pose: &[[f32;4];4]) 
+                -> Result<i32, rusqlite::Error> {
+   tx.prepare("
+INSERT INTO Animation 
+  ( 
+    AnimationId  ,
+    ObjectId     ,
+    JointIndex   ,
+    SampleTime   ,
+    SamplePose11 ,
+    SamplePose12 ,
+    SamplePose13 ,
+    SamplePose14 ,
+    SamplePose21 ,
+    SamplePose22 ,
+    SamplePose23 ,
+    SamplePose24 ,
+    SamplePose31 ,
+    SamplePose32 ,
+    SamplePose33 ,
+    SamplePose34 ,
+    SamplePose41 ,
+    SamplePose42 ,
+    SamplePose43 ,
+    SamplePose44 ,
+    Name         
+VALUES
+  (?1 ,?2 , ?3 , ?4,
+   ?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18, ?19, ?20 ,
+   ?21)
+").and_then(|mut s| s.execute(&[&animation_id,
+                                &object_id, 
+                                &joint_index, 
+                                &(*time as f64), 
+                                &(pose[0][0] as f64), 
+                                &(pose[1][0] as f64), 
+                                &(pose[2][0] as f64), 
+                                &(pose[3][0] as f64), 
+                                &(pose[0][1] as f64), 
+                                &(pose[1][1] as f64), 
+                                &(pose[2][1] as f64), 
+                                &(pose[3][1] as f64), 
+                                &(pose[0][2] as f64), 
+                                &(pose[1][2] as f64), 
+                                &(pose[2][2] as f64), 
+                                &(pose[3][2] as f64), 
+                                &(pose[0][3] as f64), 
+                                &(pose[1][3] as f64), 
+                                &(pose[2][3] as f64), 
+                                &(pose[3][3] as f64), 
+                                &name                               
+                                    ])) 
 }
 
 
