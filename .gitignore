@@ -3,3 +3,4 @@ assets/
 file.db
 node_modules/
 target/
+dist/

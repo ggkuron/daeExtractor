@@ -1,26 +1,36 @@
 {
   "name": "ceditor",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "",
-  "main": "gulpfile.js",
+  "main": "index.js",
   "scripts": {
+    "build": "webpack --progress --colors --config ./webpack.config.js",
+    "start": "webpack-dev-server",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/ggkuron/daeExtractor.git"
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@types/aphrodite": "^0.5.5",
+    "@types/material-ui": "^0.16.57",
+    "@types/react": "^15.0.16",
+    "@types/react-dom": "^0.14.23",
+    "@types/react-redux": "^4.4.40",
+    "@types/react-tap-event-plugin": "0.0.30",
+    "@types/redux": "^3.6.0",
+    "aphrodite": "^1.2.1",
+    "material-ui": "^0.17.0",
+    "react": "^15.4.2",
+    "react-dom": "^15.4.2",
+    "react-redux": "^5.0.4",
+    "react-tap-event-plugin": "^2.0.1",
+    "redux": "^3.6.0",
+    "redux-thunk": "^2.2.0",
+    "ts-loader": "^2.0.1",
+    "typescript": "^2.1.6",
+    "webpack": "^2.2.1"
   },
-  "author": "ggkuron",
-  "license": "",
-  "bugs": {
-    "url": "https://github.com/ggkuron/daeExtractor/issues"
-  },
-  "homepage": "https://github.com/ggkuron/daeExtractor#readme",
   "devDependencies": {
-    "babel": "^6.23.0",
-    "babel-preset-es2016": "^6.22.0",
-    "gulp": "^3.9.1",
-    "gulp-babel": "^6.1.2",
-    "gulp-stylus": "^2.6.0"
+    "webpack-dev-server": "^2.4.1"
   }
 }
