@@ -1,5 +1,6 @@
-extern crate rustc_serialize;
 #[macro_use] extern crate nickel;
+extern crate rustc_serialize;
+extern crate hyper;
 extern crate collada;
 extern crate png;
 extern crate rusqlite;
@@ -7,11 +8,15 @@ extern crate rusqlite;
 use std::path::Path;
 use collada::document::ColladaDocument;
 
-use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request};
+use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request, MiddlewareResult};
 use nickel::status::StatusCode;
+use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders};
 
 use std::collections::HashMap;
 use rusqlite::Connection;
+
+use rustc_serialize::json::{Json, ToJson};
+use std::collections::BTreeMap;
 
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
 #[allow(non_snake_case)]
@@ -206,6 +211,16 @@ CREATE TABLE Animation
 fn open_sqlite() -> Connection {
     let db_file = "file.db";
     Connection::open(&Path::new(db_file)).expect("failed to open sqlite file")
+}
+
+fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
+    res.set(AccessControlAllowOrigin::Any);
+    res.set(AccessControlAllowHeaders(vec![
+                                      "Origin".into(),
+                                      "Content-Type".into(),
+                                      "Accept".into(),
+    ]));
+    res.next_middleware()
 }
 
 fn main() {
@@ -450,6 +465,7 @@ fn main() {
 
     let mut server = Nickel::new();
 
+    server.utilize(enable_cors);
     server.utilize(router);
     server.utilize(StaticFilesHandler::new("static"));
 
