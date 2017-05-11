@@ -26,6 +26,16 @@ struct Object {
     FileName:  String
 }
 
+impl ToJson for Object {
+	fn to_json(&self) -> Json {
+		let mut map = BTreeMap::new();
+		map.insert("id".to_string(), self.ObjectId.to_json());
+		map.insert("name".to_string(), self.Name.to_json());
+		map.insert("filename".to_string(), self.FileName.to_json());
+		Json::Object(map)
+	}
+}
+
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
 #[allow(non_snake_case)]
 struct Texture {
@@ -252,19 +262,17 @@ fn main() {
                 }
             }) {
                 Ok(object_iter) => {
-                    let mut data = HashMap::new();
                     let list = object_iter
-                        .map(|x| x.unwrap())
-                        .collect::<Vec<Object>>();
-                    data.insert("objects", list);
+                        .map(|x| x.unwrap().to_json())
+                        .collect::<Vec<Json>>();
                     rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Html);
-                    return rep.render("template/object.tpl", &data);
+                    rep.set(MediaType::Json);
+					return rep.send(list.to_json());
                 },
                 Err(err) => {
                     println!("Failed: {}", err);
                     rep.set(StatusCode::InternalServerError);
-                    format!("{}", err);
+                    return rep.send(Json::String(format!("{}", err)));
                 }
             };
         }
