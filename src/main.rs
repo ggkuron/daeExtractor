@@ -12,7 +12,6 @@ use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request,
 use nickel::status::StatusCode;
 use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessControlAllowMethods};
 
-use std::collections::HashMap;
 use rusqlite::Connection;
 
 use rustc_serialize::json::{Json, ToJson};
@@ -29,9 +28,31 @@ struct Object {
 impl ToJson for Object {
 	fn to_json(&self) -> Json {
 		let mut map = BTreeMap::new();
-		map.insert("id".to_string(), self.ObjectId.to_json());
-		map.insert("name".to_string(), self.Name.to_json());
-		map.insert("filename".to_string(), self.FileName.to_json());
+		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
+		map.insert("Name".to_string(), self.Name.to_json());
+		map.insert("FileName".to_string(), self.FileName.to_json());
+		Json::Object(map)
+	}
+}
+
+#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[allow(non_snake_case)]
+struct Mesh {
+    ObjectId  : i32,
+    MeshId    :i32,
+    TextureId : i32,
+    Name      : String,
+    VertexCount: i32,
+}
+
+impl ToJson for Mesh {
+	fn to_json(&self) -> Json {
+		let mut map = BTreeMap::new();
+		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
+		map.insert("MeshId".to_string(), self.MeshId.to_json());
+		map.insert("TextureId".to_string(), self.TextureId.to_json());
+		map.insert("Name".to_string(), self.Name.to_json());
+		map.insert("VertexCount".to_string(), self.VertexCount.to_json());
 		Json::Object(map)
 	}
 }
@@ -44,6 +65,17 @@ struct Texture {
     Height:    i32,
     Data:      Vec<u8>,
     FileName:  String,
+}
+
+impl ToJson for Texture {
+	fn to_json(&self) -> Json {
+		let mut map = BTreeMap::new();
+		map.insert("TextureId".to_string(), self.TextureId.to_json());
+		map.insert("Width".to_string(), self.Width.to_json());
+		map.insert("Height".to_string(), self.Height.to_json());
+		map.insert("FileName".to_string(), self.FileName.to_json());
+		Json::Object(map)
+	}
 }
 
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
@@ -253,49 +285,42 @@ fn main() {
     }
 
     let router = router! {
-        get "/" => |_, mut rep| {
-            rep.set(MediaType::Html);
-            return rep.send_file("template/index.html")
-        }
-        get "/objects" => |_, mut rep| {
+
+        get "/objects" => |_, mut res| {
             let conn = open_sqlite();
-            let mut stmt = conn.prepare("SELECT * FROM Object").unwrap();
-            match stmt.query_map(&[], |row| {
+            let mut stmt = conn.prepare("SELECT ObjectId, Name FROM Object").unwrap();
+
+            let result = match stmt.query_map(&[], |row| {
                 Object {
                     ObjectId  : row.get(0),   
                     Name      : row.get(1),    
-                    FileName  : row.get(1)
+                    FileName      : row.get(1),    // not exists for now
                 }
             }) {
                 Ok(object_iter) => {
                     let list = object_iter
                         .map(|x| x.unwrap().to_json())
                         .collect::<Vec<Json>>();
-                    rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Json);
-					return rep.send(list.to_json());
+                    res.set(StatusCode::Ok);
+                    res.set(MediaType::Json);
+					list.to_json()
                 },
                 Err(err) => {
                     println!("Failed: {}", err);
-                    rep.set(StatusCode::InternalServerError);
-                    return rep.send(Json::String(format!("{}", err)));
+                    res.set(StatusCode::InternalServerError);
+                    format!("{:?}", err).to_json()
                 }
             };
+			result
         }
+
+
         get "/object/:id" => |req, mut rep| {
-            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-            #[allow(non_snake_case)]
-            struct Mesh {
-                ObjectId: i32,
-                MeshId:   i32,
-                TextureId: i32,
-                Name:     String,
-                VertexCount: i32
-            }
+
             let id = req.param("id").unwrap();
             let conn = open_sqlite();
             let mut stmt = conn.prepare("SELECT *, (SELECT COUNT(*) FROM MeshVertex AS V WHERE V.ObjectId = Mesh.ObjectId and V.MeshId = Mesh.MeshId) AS Vertex FROM Mesh WHERE ObjectId = ?1").unwrap();
-            match stmt.query_map(&[&id], |row| {
+            let result = match stmt.query_map(&[&id], |row| {
                 Mesh {
                     ObjectId  : row.get(0),   
                     MeshId    : row.get(1),
@@ -305,26 +330,25 @@ fn main() {
                 }
             }) {
                 Ok(object_iter) => {
-                    let mut data = HashMap::new();
                     let list = object_iter
-                        .map(|x| x.unwrap())
-                        .collect::<Vec<Mesh>>();
-                    data.insert("objects", list);
+                        .map(|x| x.unwrap().to_json())
+                        .collect::<Vec<Json>>();
                     rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Html);
-                    return rep.render("template/mesh.tpl", &data);
+                    rep.set(MediaType::Json);
+                    list.to_json()
                 },
                 Err(err) => {
                     println!("Failed: {}", err);
                     rep.set(StatusCode::InternalServerError);
-                    format!("{}", err);
+                    format!("{:?}", err).to_json()
                 }
             };
+			result
         }
         get "/textures" => |_, mut rep| {
             let conn = open_sqlite();
             let mut stmt = conn.prepare("SELECT * FROM Texture").unwrap();
-            match stmt.query_map(&[], |row| {
+            let result = match stmt.query_map(&[], |row| {
                 Texture {
                     TextureId  : row.get(0),
                     Width : row.get(1),
@@ -334,21 +358,20 @@ fn main() {
                 }
             }) {
                 Ok(object_iter) => {
-                    let mut data = HashMap::new();
                     let list = object_iter
-                        .map(|x| x.unwrap())
-                        .collect::<Vec<Texture>>();
-                    data.insert("objects", list);
+                        .map(|x| x.unwrap().to_json())
+                        .collect::<Vec<Json>>();
                     rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Html);
-                    return rep.render("template/texture.tpl", &data);
+                    rep.set(MediaType::Json);
+					list.to_json()
                 },
                 Err(err) => {
                     println!("Failed: {}", err);
                     rep.set(StatusCode::InternalServerError);
-                    format!("{}", err);
+                    format!("{}", err).to_json()
                 }
             };
+			result
         }
 		
         options "/texture/new" => |_, mut res| {
@@ -387,7 +410,7 @@ fn main() {
                },
                Err(err) => { 
                    println!("{:?}", err);
-                   format!("{}", err) 
+                   format!("{:?}", err) 
                }
             }
 
@@ -435,7 +458,11 @@ fn main() {
             }
         } 
 
-        post "/texture/delete/:id" => |req, mut rep| { 
+        options "/texture/delete/:id" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        delete "/texture/delete/:id" => |req, mut rep| { 
             let conn = open_sqlite();
             let id = req.param("id").unwrap();
 
@@ -452,13 +479,110 @@ fn main() {
                 },
                 Err(err) => {
                     rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {}", err);
+                    println!("Failed: {:?}", err);
                     format!("Failed")
                 }
             }
         } 
+        options "/texture/update" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/texture/update" => |req, mut rep| { 
+            let conn = open_sqlite();
 
-        post "/mesh/update" => |req, mut rep| { 
+            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+            #[allow(non_snake_case)]
+            struct Target {
+                TextureId: i32,
+                FileName: String,
+            }
+
+            let json = req.json_as::<Target>().unwrap();
+
+            let result = match conn.execute("
+                UPDATE Texture 
+                SET FileName = ?2
+                WHERE TextureId = ?1
+                ;", &[&json.TextureId, &json.FileName])
+            {
+                Ok(updated) => {
+                    rep.set(StatusCode::Ok);
+                    println!("Updated: {}", updated);
+					updated.to_json()
+                },
+                Err(err) => {
+                    rep.set(StatusCode::InternalServerError);
+                    println!("Failed: {:?}", err);
+                    format!("Failed").to_json()
+                }
+            };
+			result
+        }
+
+        options "/object/update" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/object/update" => |req, mut rep| { 
+            let conn = open_sqlite();
+
+            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+            #[allow(non_snake_case)]
+            struct Target {
+                ObjectId: i32,
+                Name: String,
+                FileName: String,
+            }
+
+            let json = req.json_as::<Target>().unwrap();
+
+            let result = match conn.execute("
+                UPDATE Object 
+                SET ObjectId = ?1,
+				    Name = ?2
+                WHERE ObjectId = ?1
+                ;", &[&json.ObjectId, &json.Name])
+                .and(conn.execute("
+                UPDATE Mesh 
+                SET ObjectId = ?1
+                WHERE ObjectId = ?1
+                ;", &[&json.ObjectId]))
+                .and(conn.execute("
+                UPDATE MeshVertex 
+                SET ObjectId = ?1
+                WHERE ObjectId = ?1
+                ;", &[&json.ObjectId]))
+                .and(conn.execute("
+                UPDATE Joint
+                SET ObjectId = ?1
+                WHERE ObjectId = ?1
+                ;", &[&json.ObjectId]))
+                .and(conn.execute("
+                UPDATE Animation
+                SET ObjectId = ?1
+                WHERE ObjectId = ?1
+                ;", &[&json.ObjectId]))
+            {
+                Ok(updated) => {
+                    rep.set(StatusCode::Ok);
+                    println!("Updated: {}", updated);
+					updated.to_json()
+                },
+                Err(err) => {
+                    rep.set(StatusCode::InternalServerError);
+                    println!("Failed: {:?}", err);
+                    format!("Failed").to_json()
+                }
+            };
+			result
+        }
+
+        options "/mesh/update" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/mesh/update" => |req, mut rep| { 
             let conn = open_sqlite();
 
             #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
@@ -471,7 +595,7 @@ fn main() {
 
             let json = req.json_as::<Target>().unwrap();
 
-            match conn.execute("
+            let result = match conn.execute("
                 UPDATE Mesh 
                 SET TextureId = ?3
                 WHERE ObjectId = ?1
@@ -480,15 +604,16 @@ fn main() {
             {
                 Ok(updated) => {
                     rep.set(StatusCode::Ok);
-                    println!("Updated: {}", updated);
-                    format!("Updated")
+                    println!("Updated: {:?}", updated);
+					updated.to_json()
                 },
                 Err(err) => {
                     rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {}", err);
-                    format!("Failed")
+                    println!("Failed: {:?}", err);
+                    format!("{:?}", err).to_json()
                 }
-            }
+            };
+			result
         } 
     };
 
@@ -501,18 +626,19 @@ fn main() {
     server.listen("127.0.0.1:3000").unwrap();
 }
 
-fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response) -> String {
+fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response) -> Json {
         #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+        #[allow(non_snake_case)]
         struct FileId {
-            id: i32,
-            filename: String,
+            TextureId: i32,
+            FileName: String,
         }
         let json = req.json_as::<FileId>().unwrap();
 
-        let filepath = format!("assets/texture/{}", json.filename);
+        let filepath = format!("assets/texture/{}", json.FileName);
         let img = open_texture(&std::path::Path::new(filepath.as_str()));
 
-        match conn.execute("
+        let result = match conn.execute("
         INSERT INTO Texture
           ( TextureId  
           , Width
@@ -522,17 +648,18 @@ fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response
           )
         VALUES 
           (?1, ?2, ?3, ?4, ?5);"
-        , &[&json.id, &(img.width as i32), &(img.height as i32), &img.data, &json.filename]) {
-            Ok(_) => {
+        , &[&json.TextureId, &(img.width as i32), &(img.height as i32), &img.data, &json.FileName]) {
+            Ok(ok) => {
                 rep.set(StatusCode::Ok);
-                format!("sucess") 
+				ok.to_json()
             },
             Err(err) => { 
                 rep.set(StatusCode::InternalServerError);
-                println!("{}", err);
-                format!("{}", err) 
+                println!("{:?}", err);
+                format!("{:?}", err).to_json()
             }
-        }
+        };
+		result
 }
 
 fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
