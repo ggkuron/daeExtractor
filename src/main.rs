@@ -10,7 +10,7 @@ use collada::document::ColladaDocument;
 
 use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request, MiddlewareResult};
 use nickel::status::StatusCode;
-use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders};
+use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessControlAllowMethods};
 
 use std::collections::HashMap;
 use rusqlite::Connection;
@@ -224,12 +224,18 @@ fn open_sqlite() -> Connection {
 }
 
 fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
-    res.set(AccessControlAllowOrigin::Any);
+    res.set(AccessControlAllowOrigin::Value("http://127.0.0.1:8081".to_owned()));
     res.set(AccessControlAllowHeaders(vec![
                                       "Origin".into(),
                                       "Content-Type".into(),
                                       "Accept".into(),
     ]));
+	res.set(AccessControlAllowMethods(vec![
+		hyper::method::Method::Get,
+		hyper::method::Method::Post,
+		hyper::method::Method::Put,
+		hyper::method::Method::Delete,
+	]));
     res.next_middleware()
 }
 
@@ -344,13 +350,17 @@ fn main() {
                 }
             };
         }
-
-        post "/texture/new" => |res, mut rep| { 
+		
+        options "/texture/new" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/texture/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             reg_new_texture(&mut conn, res, &mut rep) 
         }
 
-        post "/animation/new" => |res, mut rep| { 
+        put "/animation/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             let json = res.json_as::<Animation>().unwrap();
             match reg_new_animation(&mut conn, json) {
@@ -362,8 +372,12 @@ fn main() {
             }
 
         }
-
-        post "/object/new" => |res, mut rep| { 
+		
+        options "/object/new" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/object/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             let json = res.json_as::<Object>().unwrap();
             match reg_new_object(&mut conn, json) {
@@ -371,11 +385,18 @@ fn main() {
                    rep.set(StatusCode::Ok);
                    format!("Success")
                },
-               Err(err) => { format!("{}", err) }
+               Err(err) => { 
+                   println!("{:?}", err);
+                   format!("{}", err) 
+               }
             }
 
         }
-        post "/object/delete/:id" => |req, mut rep| { 
+        options "/object/delete/:id" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        delete "/object/delete/:id" => |req, mut rep| { 
             let conn = open_sqlite();
             let id = req.param("id").unwrap();
 
