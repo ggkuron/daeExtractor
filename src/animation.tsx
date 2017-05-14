@@ -31,12 +31,16 @@ type States = {
     new_id: number;
     new_filename: string;
     error_id: string;
-    error_name: string;
+    error_filename: string;
 };
 
 export interface Item {
-    TextureId: number;
+    AnimationId: number;
+    ObjectId: number;
+    JointIndex: number;
+    Name: string;
     FileName: string;
+    Target: string;
 }
 
 
@@ -136,7 +140,7 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
     }
 });
 
-class TextureList extends React.Component<Props, States> {
+class AnimationList extends React.Component<Props, States> {
     constructor() {
         super();
         this.state = {
@@ -152,28 +156,28 @@ class TextureList extends React.Component<Props, States> {
             <div className={css(styles.container)}>
                 <ul className={css(styles.listContainer)}>
                     {this.props.items.map((item, i) => {
-                        const selected = this.state.selectedId === item.TextureId;
+                        const selected = this.state.selectedId === item.AnimationId;
                         return (
                             <ListItem
                                 item={item}
-                                key={`list${item.TextureId}`}
+                                key={`list${i}`}
                                 style={selected ? styles.itemContainerSelected : (this.state.editing ? styles.itemContainerNotEditable : styles.itemContainer)}
                                 onSelect={() => {
                                     if (!this.state.editing) {
                                         if (!selected)
-                                            this.setState({ selectedId: item.TextureId } as States);
+                                            this.setState({ selectedId: item.AnimationId } as States);
                                         else this.setState({ selectedId: null} as States)
                                     }
                                 }}
                                 onDeleteClick={() => {
                                     this.setState({ editing: false } as States);
-                                    this.props.onDeleteRequest(item.TextureId)
+                                    this.props.onDeleteRequest(item.AnimationId)
                                 }}
                                 onEditStart={() => {
                                     if (this.state.editing) {
                                         return false;
                                     } else {
-                                        this.setState({ selectedId: item.TextureId, editing: true } as States)
+                                        this.setState({ selectedId: item.AnimationId, editing: true } as States)
                                         return true;
                                     }
                                 }}
@@ -187,7 +191,7 @@ class TextureList extends React.Component<Props, States> {
                     })}
                     <li className={css(styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} >
                         <TextField id="txt_id" type="number"
-                            floatingLabelText={this.state.showAddArea ? "TextureId" : undefined}
+                            floatingLabelText={this.state.showAddArea ? "AnimationId" : undefined}
                             style={{ flexBasis: '100%' }}
                             onChange={(ev, txt) => {
                                 const [id, message] = this.check_id(txt)
@@ -210,8 +214,12 @@ class TextureList extends React.Component<Props, States> {
                             onTouchTap={() => {
                                 if (this.state.new_id && this.state.new_filename) {
                                     this.props.onNewItemRequest({
-                                        TextureId  : this.state.new_id,
-                                        FileName: this.state.new_filename,
+                                        AnimationId  : this.state.new_id,
+                                        ObjectId: 0,
+                                        Name: '',
+                                        FileName: this.state.new_filename ,
+                                        JointIndex: 0,
+                                        Target: '',
                                     });
                                 }
                             }}
@@ -238,7 +246,7 @@ class TextureList extends React.Component<Props, States> {
     private check_id: (txt: string) => [number, string] = (txt: string) => {
         const id = parseInt(txt);
         if (!isNaN(id)) {
-            if (this.props.items.every((e) => e.TextureId !== id))
+            if (this.props.items.every((e) => e.AnimationId !== id))
                 return [id, null];
             else
                 return [null, "重複している"];
@@ -260,6 +268,7 @@ type ListItemStates = {
     editing: boolean;
     new_textureId: number;
     new_name: string;
+    new_objectId: number;
     error_texture: string;
 }
 
@@ -268,34 +277,48 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
         super();
         this.state = {
             editing: false,
-            new_name: props.item.FileName,
-            new_textureId: props.item.TextureId,
+            new_name: props.item.Name,
+            new_textureId: props.item.AnimationId,
         } as ListItemStates; 
     }
 
     componentWillReceiveProps(nextProps: ListItemProps) {
-        if(this.props.item.TextureId !== nextProps.item.TextureId) 
-            this.setState({editing: false, new_name: nextProps.item.FileName, new_textureId: nextProps.item.TextureId})
+        if(this.props.item.AnimationId !== nextProps.item.AnimationId) 
+            this.setState({editing: false, new_name: nextProps.item.Name, new_textureId: nextProps.item.AnimationId})
     }
 
     render() {
         return (
             <li className={css( this.props.style )}
-                onClick={() => this.props.onSelect(this.props.item.TextureId)}
+                onClick={() => this.props.onSelect(this.props.item.AnimationId)}
             >
                 <div>{this.state.editing ?
-                    <TextField floatingLabelText="TextureId" defaultValue={this.props.item.TextureId}
+                    <TextField floatingLabelText="AnimationId" defaultValue={this.props.item.AnimationId}
                         type="number"
                         disabled={true}
                     /> :
-                    this.props.item.TextureId}</div>
+                    this.props.item.AnimationId}</div>
                 <div>{this.state.editing ?
-                    <TextField floatingLabelText="FileName" defaultValue={this.props.item.FileName}
+                    <TextField floatingLabelText="ObjectId" defaultValue={this.props.item.ObjectId}
+                        type="number"
+                        onChange={(ev, txt) => {
+                            const id = parseInt(txt);
+                            if (!isNaN(id)) {
+                                this.setState({ new_objectId: id } as ListItemStates);
+                            }
+                        }}
+                    /> :
+                    this.props.item.ObjectId}</div>
+                <div>{this.state.editing ?
+                    <TextField floatingLabelText="Name" defaultValue={this.props.item.Name}
                         onChange={(ev, txt) => {
                             this.setState({ new_name: txt } as ListItemStates);
                         }}
                     /> :
-                    this.props.item.FileName}</div>
+                    this.props.item.Name}</div>
+                <div>{this.props.item.FileName}</div>
+                <div>{this.props.item.Target}</div>
+                <div>{this.props.item.JointIndex}</div>
                 <div style={{
                         visibility: this.props.editable ? 'visible' : 'hidden',
                         opacity: this.props.editable ? 1 : 0,
@@ -304,8 +327,12 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
                         <FloatingActionButton zDepth={0} mini={true}
                             onTouchTap={() => {
                                 this.props.onEditComplete({
-                                    TextureId: this.props.item.TextureId,
-                                    FileName: this.state.new_name,
+                                    AnimationId: this.props.item.AnimationId,
+                                    ObjectId: this.state.new_objectId,
+                                    Name: this.state.new_name,
+                                    FileName: this.props.item.FileName,
+                                    Target: this.props.item.Target,
+                                    JointIndex: this.props.item.JointIndex,
                                 });
                                 this.setState({ editing: false });
                             }}
@@ -321,7 +348,9 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
                     {this.state.editing ?
                         <FloatingActionButton zDepth={0} mini={true}
                             style={{ marginLeft: 15 }}
-                            onTouchTap={() => { this.props.onDeleteClick(this.props.item.TextureId); }}
+                            onTouchTap={() => {
+                                this.props.onDeleteClick(this.props.item.AnimationId);
+                            }}
                         ><ContentDel /></FloatingActionButton> : null
                     }
                 </div>
@@ -331,5 +360,5 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
 }
 
 export default (
-    muiThemeable()((props: Props) => (<TextureList {...props} />))
+    muiThemeable()((props: Props) => (<AnimationList {...props} />))
 )

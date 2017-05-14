@@ -83,10 +83,24 @@ impl ToJson for Texture {
 struct Animation {
     AnimationId:  i32,
     ObjectId: i32,
+	JointIndex: i32,
     Name:      String,
-    FileName:  String
+    FileName:  String,
+	Target: String,
 }
 
+impl ToJson for Animation {
+	fn to_json(&self) -> Json {
+		let mut map = BTreeMap::new();
+		map.insert("AnimationId".to_string(), self.AnimationId.to_json());
+		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
+		map.insert("JointIndex".to_string(), self.JointIndex.to_json());
+		map.insert("Name".to_string(), self.Name.to_json());
+		map.insert("FileName".to_string(), self.FileName.to_json());
+		map.insert("Target".to_string(), self.Target.to_json());
+		Json::Object(map)
+	}
+}
 
 
 #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
@@ -243,7 +257,9 @@ CREATE TABLE Animation
     SamplePose42   REAL NOT NULL,
     SamplePose43   REAL NOT NULL,
     SamplePose44   REAL NOT NULL,
-    Name         TEXT  NOT NULL,
+    Name           TEXT  NOT NULL,
+    Target         TEXT  NOT NULL,
+    FileName       TEXT  NOT NULL,
     PRIMARY KEY (ObjectId, AnimationId, SampleTime, JointIndex)
   );
 ";
@@ -281,7 +297,7 @@ fn main() {
      .and(conn.execute(CREATE_TABLE_JOINT, &[]))
      .and(conn.execute(CREATE_TABLE_ANIMATION, &[]))
     {
-        println!("{}", err) 
+        println!("{:?}", err)  // just ignore
     }
 
     let router = router! {
@@ -319,7 +335,19 @@ fn main() {
 
             let id = req.param("id").unwrap();
             let conn = open_sqlite();
-            let mut stmt = conn.prepare("SELECT *, (SELECT COUNT(*) FROM MeshVertex AS V WHERE V.ObjectId = Mesh.ObjectId and V.MeshId = Mesh.MeshId) AS Vertex FROM Mesh WHERE ObjectId = ?1").unwrap();
+            let mut stmt = conn.prepare("
+			SELECT 
+			  ObjectId,
+			  MeshId,
+			  TextureId,
+			  Name,
+			  (SELECT 
+			     COUNT(*)
+				 FROM MeshVertex AS V
+			   WHERE V.ObjectId = Mesh.ObjectId
+			     and V.MeshId = Mesh.MeshId) AS Vertex
+			  FROM Mesh
+			WHERE ObjectId = ?1").unwrap();
             let result = match stmt.query_map(&[&id], |row| {
                 Mesh {
                     ObjectId  : row.get(0),   
@@ -338,7 +366,7 @@ fn main() {
                     list.to_json()
                 },
                 Err(err) => {
-                    println!("Failed: {}", err);
+                    println!("Failed: {:?}", err);
                     rep.set(StatusCode::InternalServerError);
                     format!("{:?}", err).to_json()
                 }
@@ -383,6 +411,47 @@ fn main() {
             reg_new_texture(&mut conn, res, &mut rep) 
         }
 
+        get "/animations" => |_, mut rep| {
+            let conn = open_sqlite();
+            let mut stmt = conn.prepare(
+			"SELECT DISTINCT
+			   AnimationId,
+			   ObjectId,
+			   JointIndex,
+			   Name,
+			   FileName,
+			   Target
+			   FROM Animation").unwrap();
+            let result = match stmt.query_map(&[], |row| {
+                Animation {
+                    AnimationId  : row.get(0),
+					ObjectId: row.get(1),
+					JointIndex: row.get(2),
+    				Name: row.get(3),     
+    				FileName:  row.get(4),
+					Target: row.get(5),
+                }
+            }) {
+                Ok(object_iter) => {
+                    let list = object_iter
+                        .map(|x| x.unwrap().to_json())
+                        .collect::<Vec<Json>>();
+                    rep.set(StatusCode::Ok);
+                    rep.set(MediaType::Json);
+					list.to_json()
+                },
+                Err(err) => {
+                    println!("Failed: {}", err);
+                    rep.set(StatusCode::InternalServerError);
+                    format!("{:?}", err).to_json()
+                }
+            };
+			result
+        }
+        options "/animation/new" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
         put "/animation/new" => |res, mut rep| { 
             let mut conn = open_sqlite();
             let json = res.json_as::<Animation>().unwrap();
@@ -391,10 +460,72 @@ fn main() {
                    rep.set(StatusCode::Ok);
                    format!("Success")
                },
-               Err(err) => { format!("{}", err) }
+               Err(err) => { 
+				   format!("{}", err) 
+			   }
             }
 
         }
+
+        options "/animation/update" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        put "/animation/update" => |req, mut rep| { 
+            let conn = open_sqlite();
+
+            let json = req.json_as::<Animation>().unwrap();
+
+            let result = match conn.execute("
+                UPDATE Animation 
+                SET
+				  ObjectId = ?2,
+				  Name = ?3,
+				  JointIndex = ?4
+                WHERE AnimationId = ?1
+                ;", &[&json.AnimationId, &json.ObjectId, &json.Name, &json.JointIndex])
+            {
+                Ok(updated) => {
+                    rep.set(StatusCode::Ok);
+                    println!("Updated: {}", updated);
+					updated.to_json()
+                },
+                Err(err) => {
+                    rep.set(StatusCode::InternalServerError);
+                    println!("Failed: {:?}", err);
+                    format!("Failed").to_json()
+                }
+            };
+			result
+        }
+
+        options "/animation/delete/:id" => |_, mut res| {
+			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
+			"" // no content then 404
+		}
+        delete "/animation/delete/:id" => |req, mut rep| { 
+            let conn = open_sqlite();
+            let id = req.param("id").unwrap();
+
+            let result = match conn.execute("
+                DELETE FROM Animation 
+                WHERE 
+                  AnimationId = ?1
+                ;", &[&id])
+            {
+                Ok(_) => {
+                    rep.set(StatusCode::Ok);
+                    println!("Deleted");
+                    format!("Deleted").to_json()
+                },
+                Err(err) => {
+                    rep.set(StatusCode::InternalServerError);
+                    println!("Failed: {:?}", err);
+                    format!("{:?}", err).to_json()
+                }
+            };
+			result
+        } 
 		
         options "/object/new" => |_, mut res| {
 			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
@@ -539,34 +670,13 @@ fn main() {
 
             let result = match conn.execute("
                 UPDATE Object 
-                SET ObjectId = ?1,
-				    Name = ?2
+                SET Name = ?2
                 WHERE ObjectId = ?1
                 ;", &[&json.ObjectId, &json.Name])
-                .and(conn.execute("
-                UPDATE Mesh 
-                SET ObjectId = ?1
-                WHERE ObjectId = ?1
-                ;", &[&json.ObjectId]))
-                .and(conn.execute("
-                UPDATE MeshVertex 
-                SET ObjectId = ?1
-                WHERE ObjectId = ?1
-                ;", &[&json.ObjectId]))
-                .and(conn.execute("
-                UPDATE Joint
-                SET ObjectId = ?1
-                WHERE ObjectId = ?1
-                ;", &[&json.ObjectId]))
-                .and(conn.execute("
-                UPDATE Animation
-                SET ObjectId = ?1
-                WHERE ObjectId = ?1
-                ;", &[&json.ObjectId]))
             {
                 Ok(updated) => {
                     rep.set(StatusCode::Ok);
-                    println!("Updated: {}", updated);
+                    println!("Updated: {:?}", updated);
 					updated.to_json()
                 },
                 Err(err) => {
@@ -735,9 +845,10 @@ fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), Strin
 
     let filepath = format!("assets/dae/{}", json.FileName);
     let collada_doc = ColladaDocument::from_path(&Path::new(filepath.as_str())).expect("failed to load dae");
-    for a in collada_doc.get_animations().iter() {
-        let mut stmt = tx.prepare("SELECT JointIndex FROM Mesh WHERE ObjectId = ?1 and Name = ?2").unwrap();
-        let joint_index = match stmt.query_map(&[&json.ObjectId, &a.target], |row| { row.get::<i32,i32>(0) }) { 
+    for (n, a) in collada_doc.get_animations().iter().enumerate() {
+        let mut stmt = tx.prepare("SELECT JointIndex FROM Joint WHERE ?1 LIKE (Name ||'%') ").unwrap();
+        let joint_index = match stmt.query_map(&[&a.target], |row| { row.get::<i32,i32>(0) }) { 
+
             Ok(itr) => {
                 let e = itr.map(|i| i.unwrap()).collect::<Vec<i32>>();
                 if e.len() == 0 { 0 } else { e.get(0).unwrap().clone() }
@@ -746,15 +857,20 @@ fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), Strin
         };
         for (i, time) in a.sample_times.iter().enumerate()
         {
-            let pose = a.sample_poses.get(i).unwrap();
-            if let Err(err) = insert_animation(&tx, json.AnimationId, json.ObjectId, time, joint_index, &a.target, pose) {
-                errors.push(format!("{}", err))
-            }
+			if let Some(pose) = a.sample_poses.get(i) {
+	            if let Err(err) = insert_animation(&tx, json.AnimationId + n as i32, json.ObjectId, time, joint_index, &json.Name, pose, &json.FileName, &a.target) {
+					errors.push(format!("{:?}", err))
+				}		
+			} else {
+				errors.push(format!("{:?}", "pose not found"))
+			}
         }
     }
 
     if errors.len() == 0 {
-        Ok(())
+        if let Err(err) = tx.commit() {
+           Err(format!("{:?}", err)) 
+        } else { Ok(()) }
     } else {
         Err(errors.join("\n"))
     }
@@ -950,7 +1066,7 @@ VALUES
                                ]))
 }
 
-fn insert_animation(tx: &rusqlite::Transaction, animation_id: i32, object_id: i32, time: &f32, joint_index: i32, name: &str, pose: &[[f32;4];4]) 
+fn insert_animation(tx: &rusqlite::Transaction, animation_id: i32, object_id: i32, time: &f32, joint_index: i32, name: &str, pose: &[[f32;4];4], filename: &str, target: &str) 
                 -> Result<i32, rusqlite::Error> {
    tx.prepare("
 INSERT INTO Animation 
@@ -975,11 +1091,14 @@ INSERT INTO Animation
     SamplePose42 ,
     SamplePose43 ,
     SamplePose44 ,
-    Name         
+	Target,
+    Name,
+	FileName
+  )
 VALUES
   (?1 ,?2 , ?3 , ?4,
    ?5 ,?6 ,?7 ,?8 ,?9 ,?10 ,?11 ,?12 ,?13 ,?14 ,?15 ,?16 ,?17 ,?18, ?19, ?20 ,
-   ?21)
+   ?21, ?22, ?23)
 ").and_then(|mut s| s.execute(&[&animation_id,
                                 &object_id, 
                                 &joint_index, 
@@ -1000,7 +1119,9 @@ VALUES
                                 &(pose[1][3] as f64), 
                                 &(pose[2][3] as f64), 
                                 &(pose[3][3] as f64), 
-                                &name                               
+								&target,
+                                &name,
+								&filename,
                                     ])) 
 }
 

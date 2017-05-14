@@ -171,7 +171,10 @@ class ObjectTable extends React.Component<Props, States> {
                                         else this.setState({ selectedId: null, meshItems: [] } as States)
                                     }
                                 }}
-                                onDeleteClick={() => { this.props.onDeleteRequest(item.ObjectId) }}
+                                onDeleteClick={() => {
+                                    this.setState({ editing: false } as States);
+                                    this.props.onDeleteRequest(item.ObjectId)
+                                }}
                                 onEditStart={() => {
                                     if (this.state.editing) {
                                         return false;

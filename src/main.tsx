@@ -7,6 +7,7 @@ import AppBar from 'material-ui/AppBar';
 import ObjectTable, { Item as ObjectItem } from './object';
 import MeshTable, { ItemSummary as MeshItemSummary, Item as MeshItem } from './mesh';
 import TextureList, { Item as TextureItem } from './texture';
+import AnimationList, { Item as AnimationItem } from './animation';
 import {Tabs, Tab} from 'material-ui/Tabs';
 
 import { ActionDispatcher } from './Container';
@@ -21,6 +22,7 @@ export interface Props   {
 type States = {
     objects: ObjectItem[];
     textures: TextureItem[];
+    animations: AnimationItem[];
 }
 
 const styles = {
@@ -29,12 +31,19 @@ const styles = {
         minHeight: '100vh',
     },
     contentContainer: {
-        padding: '15px 30px',
+        padding: '63px 30px 15px',
+    },
+    tabContainer: {
+        position: 'fixed' as 'fixed',
+        zIndex: 1000,
+        height: 48,
     },
     inkBar: {
-        height: 6,
+        position: 'fixed' as 'fixed',
+        height: 5,
         borderRadius: 0,
-        bottom: 4,
+        zIndex: 1001,
+        top: 44,
     }
 }
 
@@ -53,6 +62,7 @@ export default class MyApp extends React.Component<Props, States> {
         this.state = {
             objects: [],
             textures: [],
+            animations: [],
         };
     }
 
@@ -74,12 +84,20 @@ export default class MyApp extends React.Component<Props, States> {
             else console.log('texture fetch failure');
         })
     }
+    private fetch_animations = (acition: ((items: AnimationItem[]) => void)) =>  {
+        fetch(`${ApiServerOrigin}/animations`, {method: 'GET'}).then((res: any) => {
+            if (res.ok) return res.json().then((json: AnimationItem[]) => acition(json))
+            else console.log('animation fetch failure');
+        })
+    }
     private fetch_objects_and_set = () => { this.fetch_objects((items) => this.setState({ objects: items } as States))}
     private fetch_textures_and_set = () => { this.fetch_textures((items) => this.setState({ textures: items } as States))}
+    private fetch_animations_and_set = () => { this.fetch_animations((items) => this.setState({ animations: items } as States))}
 
     componentWillMount = () => {
         this.fetch_objects_and_set();
         this.fetch_textures_and_set();
+        this.fetch_animations_and_set();
     }
 
     render() {
@@ -88,6 +106,7 @@ export default class MyApp extends React.Component<Props, States> {
                 <Tabs
                     style={styles.tabs}
                     contentContainerStyle={styles.contentContainer}
+                    tabItemContainerStyle={styles.tabContainer}
                     inkBarStyle={styles.inkBar}
                 >
                     <Tab label="Object">
@@ -140,6 +159,28 @@ export default class MyApp extends React.Component<Props, States> {
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
                                     }).then((res: any) => this.fetch_textures_and_set())
+                            }}
+                        />
+                    </Tab>
+                    <Tab label="Animation">
+                        <AnimationList
+                            items={this.state.animations}
+                            onNewItemRequest={(item) => {
+                                fetch(`${ApiServerOrigin}/animation/new`,
+                                    { method: 'PUT',
+                                      body: JSON.stringify(item)
+                                    }).then((res: any) => this.fetch_animations_and_set())
+                            }}
+                            onDeleteRequest={(id) => {
+                                fetch(`${ApiServerOrigin}/animation/delete/${id}`,
+                                    { method: 'DELETE',
+                                    }).then((res: any) => this.fetch_animations_and_set())
+                            }}
+                            onUpdateItemRequest={(item) => {
+                                fetch(`${ApiServerOrigin}/animation/update`,
+                                    { method: 'PUT',
+                                      body: JSON.stringify(item)
+                                    }).then((res: any) => this.fetch_animations_and_set())
                             }}
                         />
                     </Tab>
