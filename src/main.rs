@@ -853,7 +853,7 @@ fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), Strin
                 let e = itr.map(|i| i.unwrap()).collect::<Vec<i32>>();
                 if e.len() == 0 { 0 } else { e.get(0).unwrap().clone() }
             },
-            _ => 0
+            _ => -1
         };
         for (i, time) in a.sample_times.iter().enumerate()
         {
