@@ -266,9 +266,10 @@ export interface ListItemProps extends MuiThemeProviderProps {
 }
 type ListItemStates = {
     editing: boolean;
-    new_textureId: number;
+    new_animationId: number;
     new_name: string;
     new_objectId: number;
+    new_jointIndex: number;
     error_texture: string;
 }
 
@@ -278,13 +279,21 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
         this.state = {
             editing: false,
             new_name: props.item.Name,
-            new_textureId: props.item.AnimationId,
+            new_objectId: props.item.ObjectId,
+            new_animationId: props.item.AnimationId,
+            new_jointIndex: props.item.JointIndex,
         } as ListItemStates; 
     }
 
     componentWillReceiveProps(nextProps: ListItemProps) {
         if(this.props.item.AnimationId !== nextProps.item.AnimationId) 
-            this.setState({editing: false, new_name: nextProps.item.Name, new_textureId: nextProps.item.AnimationId})
+            this.setState({
+                editing: false,
+                new_name: nextProps.item.Name,
+                new_animationId: nextProps.item.AnimationId,
+                new_objectId: nextProps.item.ObjectId,
+                new_jointIndex: nextProps.item.JointIndex,
+            })
     }
 
     render() {
@@ -318,7 +327,17 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
                     this.props.item.Name}</div>
                 <div>{this.props.item.FileName}</div>
                 <div>{this.props.item.Target}</div>
-                <div>{this.props.item.JointIndex}</div>
+                <div>{this.state.editing ?
+                    <TextField floatingLabelText="JointIndex" defaultValue={this.props.item.JointIndex}
+                        type="number"
+                        onChange={(ev, txt) => {
+                            const id = parseInt(txt);
+                            if (!isNaN(id)) {
+                                this.setState({ new_jointIndex: id } as ListItemStates);
+                            }
+                        }}
+                    /> :
+                    this.props.item.JointIndex}</div>
                 <div style={{
                         visibility: this.props.editable ? 'visible' : 'hidden',
                         opacity: this.props.editable ? 1 : 0,
@@ -332,7 +351,7 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
                                     Name: this.state.new_name,
                                     FileName: this.props.item.FileName,
                                     Target: this.props.item.Target,
-                                    JointIndex: this.props.item.JointIndex,
+                                    JointIndex: this.state.new_jointIndex,
                                 });
                                 this.setState({ editing: false });
                             }}
