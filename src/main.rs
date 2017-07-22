@@ -1,23 +1,27 @@
-#[macro_use] extern crate nickel;
-extern crate rustc_serialize;
-extern crate hyper;
+extern crate iron;
+extern crate router;
+#[macro_use] extern crate serde_derive;
 extern crate collada;
 extern crate png;
 extern crate rusqlite;
+extern crate serde;
+extern crate serde_json;
+extern crate bodyparser;
 
 use std::path::Path;
 use collada::document::ColladaDocument;
 
-use nickel::{Nickel, JsonBody, MediaType, StaticFilesHandler, Response, Request, MiddlewareResult};
-use nickel::status::StatusCode;
-use hyper::header::{AccessControlAllowOrigin, AccessControlAllowHeaders, AccessControlAllowMethods};
+use iron::status;
+use iron::prelude::*;
+use iron::mime;
+use iron::method::Method;
+use iron::{ AfterMiddleware, headers};
 
 use rusqlite::Connection;
 
-use rustc_serialize::json::{Json, ToJson};
-use std::collections::BTreeMap;
+use router::Router;
 
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 struct Object {
     ObjectId:  i32,
@@ -25,17 +29,7 @@ struct Object {
     FileName:  String
 }
 
-impl ToJson for Object {
-	fn to_json(&self) -> Json {
-		let mut map = BTreeMap::new();
-		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
-		map.insert("Name".to_string(), self.Name.to_json());
-		map.insert("FileName".to_string(), self.FileName.to_json());
-		Json::Object(map)
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 struct Mesh {
     ObjectId  : i32,
@@ -45,19 +39,7 @@ struct Mesh {
     VertexCount: i32,
 }
 
-impl ToJson for Mesh {
-	fn to_json(&self) -> Json {
-		let mut map = BTreeMap::new();
-		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
-		map.insert("MeshId".to_string(), self.MeshId.to_json());
-		map.insert("TextureId".to_string(), self.TextureId.to_json());
-		map.insert("Name".to_string(), self.Name.to_json());
-		map.insert("VertexCount".to_string(), self.VertexCount.to_json());
-		Json::Object(map)
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 struct Texture {
     TextureId: i32,
@@ -67,43 +49,18 @@ struct Texture {
     FileName:  String,
 }
 
-impl ToJson for Texture {
-	fn to_json(&self) -> Json {
-		let mut map = BTreeMap::new();
-		map.insert("TextureId".to_string(), self.TextureId.to_json());
-		map.insert("Width".to_string(), self.Width.to_json());
-		map.insert("Height".to_string(), self.Height.to_json());
-		map.insert("FileName".to_string(), self.FileName.to_json());
-		Json::Object(map)
-	}
-}
-
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 struct Animation {
     AnimationId:  i32,
     ObjectId: i32,
-	JointIndex: i32,
+    JointIndex: i32,
     Name:      String,
     FileName:  String,
-	Target: String,
+    Target: String,
 }
 
-impl ToJson for Animation {
-	fn to_json(&self) -> Json {
-		let mut map = BTreeMap::new();
-		map.insert("AnimationId".to_string(), self.AnimationId.to_json());
-		map.insert("ObjectId".to_string(), self.ObjectId.to_json());
-		map.insert("JointIndex".to_string(), self.JointIndex.to_json());
-		map.insert("Name".to_string(), self.Name.to_json());
-		map.insert("FileName".to_string(), self.FileName.to_json());
-		map.insert("Target".to_string(), self.Target.to_json());
-		Json::Object(map)
-	}
-}
-
-
-#[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[allow(non_snake_case)]
 struct MeshVertex {
     ObjectId      :i32,
@@ -271,479 +228,448 @@ fn open_sqlite() -> Connection {
     Connection::open(&Path::new(db_file)).expect("failed to open sqlite file")
 }
 
-fn enable_cors<'mw>(_req: &mut Request, mut res: Response<'mw>) -> MiddlewareResult<'mw> {
-    res.set(AccessControlAllowOrigin::Value("http://127.0.0.1:8081".to_owned()));
-    res.set(AccessControlAllowHeaders(vec![
-                                      "Origin".into(),
-                                      "Content-Type".into(),
-                                      "Accept".into(),
-    ]));
-	res.set(AccessControlAllowMethods(vec![
-		hyper::method::Method::Get,
-		hyper::method::Method::Post,
-		hyper::method::Method::Put,
-		hyper::method::Method::Delete,
-	]));
-    res.next_middleware()
+
+struct CORS {}
+
+impl CORS {
+    pub fn new() -> Self {
+        CORS {
+        }
+    }
+    fn add_headers(res: &mut Response) {
+        res.headers.set(headers::AccessControlAllowOrigin::Value("http://localhost:8080".to_owned()));
+        res.headers.set(headers::AccessControlAllowHeaders(vec![
+                                          "Origin".into(),
+                                          "Content-Type".into(),
+                                          "Accept".into(),
+        ]));
+        res.headers.set(headers::AccessControlAllowMethods(vec![
+            Method::Get,
+            Method::Post,
+            Method::Put,
+            Method::Delete,
+        ]));
+    }
 }
+impl AfterMiddleware for CORS {
+    fn after(&self, req: &mut Request, mut res: Response) -> IronResult<Response> {
+        if req.method == Method::Options {
+            res = Response::with(status::Ok);
+        }
+        CORS::add_headers(&mut res);
+
+        Ok(res)
+    }
+}
+
+
 
 fn main() {
 
-    let conn = open_sqlite();
-    if let Err(err) =  conn.execute(CREATE_TABLE_OBJECT, &[]) 
-     .and(conn.execute(CREATE_TABLE_MESH, &[]))
-     .and(conn.execute(CREATE_TABLE_MESHVERTEX, &[]))
-     .and(conn.execute(CREATE_TABLE_TEXTURE, &[])) 
-     .and(conn.execute(CREATE_TABLE_JOINT, &[]))
-     .and(conn.execute(CREATE_TABLE_ANIMATION, &[]))
     {
-        println!("{:?}", err)  // just ignore
+        let conn = open_sqlite();
+        if let Err(err) = conn.execute(CREATE_TABLE_OBJECT, &[]) 
+            .and(conn.execute(CREATE_TABLE_MESH, &[]))
+            .and(conn.execute(CREATE_TABLE_MESHVERTEX, &[]))
+            .and(conn.execute(CREATE_TABLE_TEXTURE, &[])) 
+            .and(conn.execute(CREATE_TABLE_JOINT, &[]))
+            .and(conn.execute(CREATE_TABLE_ANIMATION, &[])) {
+            println!("{:?}", err)  // just ignore
+        }
     }
 
-    let router = router! {
+    let mut router = Router::new();
 
-        get "/objects" => |_, mut res| {
-            let conn = open_sqlite();
-            let mut stmt = conn.prepare("SELECT ObjectId, Name FROM Object").unwrap();
+    router.get("/objects", list_object, "list-object");
+    fn list_object(_: &mut Request) -> IronResult<Response> {
+        let conn = open_sqlite();
+        let mut stmt = conn.prepare("SELECT ObjectId, Name FROM Object").unwrap();
 
-            let result = match stmt.query_map(&[], |row| {
-                Object {
-                    ObjectId  : row.get(0),   
-                    Name      : row.get(1),    
-                    FileName      : row.get(1),    // not exists for now
-                }
-            }) {
-                Ok(object_iter) => {
-                    let list = object_iter
-                        .map(|x| x.unwrap().to_json())
-                        .collect::<Vec<Json>>();
-                    res.set(StatusCode::Ok);
-                    res.set(MediaType::Json);
-					list.to_json()
-                },
-                Err(err) => {
-                    println!("Failed: {}", err);
-                    res.set(StatusCode::InternalServerError);
-                    format!("{:?}", err).to_json()
-                }
-            };
-			result
-        }
-
-
-        get "/object/:id" => |req, mut rep| {
-
-            let id = req.param("id").unwrap();
-            let conn = open_sqlite();
-            let mut stmt = conn.prepare("
-			SELECT 
-			  ObjectId,
-			  MeshId,
-			  TextureId,
-			  Name,
-			  (SELECT 
-			     COUNT(*)
-				 FROM MeshVertex AS V
-			   WHERE V.ObjectId = Mesh.ObjectId
-			     and V.MeshId = Mesh.MeshId) AS Vertex
-			  FROM Mesh
-			WHERE ObjectId = ?1").unwrap();
-            let result = match stmt.query_map(&[&id], |row| {
-                Mesh {
-                    ObjectId  : row.get(0),   
-                    MeshId    : row.get(1),
-                    TextureId : row.get(2),
-                    Name      : row.get(3),    
-                    VertexCount: row.get(4),
-                }
-            }) {
-                Ok(object_iter) => {
-                    let list = object_iter
-                        .map(|x| x.unwrap().to_json())
-                        .collect::<Vec<Json>>();
-                    rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Json);
-                    list.to_json()
-                },
-                Err(err) => {
-                    println!("Failed: {:?}", err);
-                    rep.set(StatusCode::InternalServerError);
-                    format!("{:?}", err).to_json()
-                }
-            };
-			result
-        }
-        get "/textures" => |_, mut rep| {
-            let conn = open_sqlite();
-            let mut stmt = conn.prepare("SELECT * FROM Texture").unwrap();
-            let result = match stmt.query_map(&[], |row| {
-                Texture {
-                    TextureId  : row.get(0),
-                    Width : row.get(1),
-                    Height : row.get(2),
-                    Data  : row.get(3),
-                    FileName  : row.get(4)
-                }
-            }) {
-                Ok(object_iter) => {
-                    let list = object_iter
-                        .map(|x| x.unwrap().to_json())
-                        .collect::<Vec<Json>>();
-                    rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Json);
-					list.to_json()
-                },
-                Err(err) => {
-                    println!("Failed: {}", err);
-                    rep.set(StatusCode::InternalServerError);
-                    format!("{}", err).to_json()
-                }
-            };
-			result
-        }
-		
-        options "/texture/new" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/texture/new" => |res, mut rep| { 
-            let mut conn = open_sqlite();
-            reg_new_texture(&mut conn, res, &mut rep) 
-        }
-
-        get "/animations" => |_, mut rep| {
-            let conn = open_sqlite();
-            let mut stmt = conn.prepare(
-			"SELECT DISTINCT
-			   AnimationId,
-			   ObjectId,
-			   JointIndex,
-			   Name,
-			   FileName,
-			   Target
-			   FROM Animation").unwrap();
-            let result = match stmt.query_map(&[], |row| {
-                Animation {
-                    AnimationId  : row.get(0),
-					ObjectId: row.get(1),
-					JointIndex: row.get(2),
-    				Name: row.get(3),     
-    				FileName:  row.get(4),
-					Target: row.get(5),
-                }
-            }) {
-                Ok(object_iter) => {
-                    let list = object_iter
-                        .map(|x| x.unwrap().to_json())
-                        .collect::<Vec<Json>>();
-                    rep.set(StatusCode::Ok);
-                    rep.set(MediaType::Json);
-					list.to_json()
-                },
-                Err(err) => {
-                    println!("Failed: {}", err);
-                    rep.set(StatusCode::InternalServerError);
-                    format!("{:?}", err).to_json()
-                }
-            };
-			result
-        }
-        options "/animation/new" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/animation/new" => |res, mut rep| { 
-            let mut conn = open_sqlite();
-            let json = res.json_as::<Animation>().unwrap();
-            match reg_new_animation(&mut conn, json) {
-               Ok(_) => {
-                   rep.set(StatusCode::Ok);
-                   format!("Success")
-               },
-               Err(err) => { 
-				   format!("{}", err) 
-			   }
+        let result = match stmt.query_map(&[], |row| {
+            Object {
+                ObjectId  : row.get(0),   
+                Name      : row.get(1),    
+                FileName  : row.get(1),    // not exists for now
             }
-
-        }
-
-        options "/animation/update" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/animation/update" => |req, mut rep| { 
-            let conn = open_sqlite();
-
-            let json = req.json_as::<Animation>().unwrap();
-
-            let result = match conn.execute("
-                UPDATE Animation 
-                SET
-				  ObjectId = ?2,
-				  Name = ?3,
-				  JointIndex = ?4
-                WHERE AnimationId = ?1
-                ;", &[&json.AnimationId, &json.ObjectId, &json.Name, &json.JointIndex])
-            {
-                Ok(updated) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Updated: {}", updated);
-					updated.to_json()
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("Failed").to_json()
-                }
-            };
-			result
-        }
-
-        options "/animation/delete/:id" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        delete "/animation/delete/:id" => |req, mut rep| { 
-            let conn = open_sqlite();
-            let id = req.param("id").unwrap();
-
-            let result = match conn.execute("
-                DELETE FROM Animation 
-                WHERE 
-                  AnimationId = ?1
-                ;", &[&id])
-            {
-                Ok(_) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Deleted");
-                    format!("Deleted").to_json()
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("{:?}", err).to_json()
-                }
-            };
-			result
-        } 
-		
-        options "/object/new" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/object/new" => |res, mut rep| { 
-            let mut conn = open_sqlite();
-            let json = res.json_as::<Object>().unwrap();
-            match reg_new_object(&mut conn, json) {
-               Ok(_) => {
-                   rep.set(StatusCode::Ok);
-                   format!("Success")
-               },
-               Err(err) => { 
-                   println!("{:?}", err);
-                   format!("{:?}", err) 
-               }
+        }) {
+            Ok(object_iter) => {
+                let list = object_iter
+                    .map(|x| x.unwrap())
+                    .collect::<Vec<_>>();
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&list).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {}", err);
+                Ok(Response::with(status::InternalServerError))
             }
+        };
+        result
+    }
 
+    router.get("/object/:id", get_object, "get-object");
+    fn get_object(req: &mut Request) -> IronResult<Response> { 
+        let id = req.extensions.get::<Router>().unwrap().find("id").unwrap();
+        let conn = open_sqlite();
+        let mut stmt = conn.prepare("
+        SELECT 
+          ObjectId,
+          MeshId,
+          TextureId,
+          Name,
+          (SELECT 
+             COUNT(*)
+             FROM MeshVertex AS V
+           WHERE V.ObjectId = Mesh.ObjectId
+             and V.MeshId = Mesh.MeshId) AS Vertex
+          FROM Mesh
+        WHERE ObjectId = ?1").unwrap();
+        let result = match stmt.query_map(&[&id], |row| {
+            Mesh {
+                ObjectId  : row.get(0),   
+                MeshId    : row.get(1),
+                TextureId : row.get(2),
+                Name      : row.get(3),    
+                VertexCount: row.get(4),
+            }
+        }) {
+            Ok(object_iter) => {
+                let list = object_iter
+                    .map(|x| x.unwrap())
+                    .collect::<Vec<_>>();
+                Ok(Response::with((status::Ok, serde_json::to_string(&list).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    }
+
+    router.get("/textures", list_texture, "list-texture");
+
+    fn list_texture(_: &mut Request) -> IronResult<Response> {
+        let conn = open_sqlite();
+        let mut stmt = conn.prepare("SELECT * FROM Texture").unwrap();
+        let result = match stmt.query_map(&[], |row| {
+            Texture {
+                TextureId  : row.get(0),
+                Width : row.get(1),
+                Height : row.get(2),
+                Data  : row.get(3),
+                FileName  : row.get(4)
+            }
+        }) {
+            Ok(object_iter) => {
+                let list = object_iter
+                    .map(|x| x.unwrap())
+                    .collect::<Vec<_>>();
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&list).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    }
+
+    router.put("/texture/new", create_texture, "create-texture");
+    fn create_texture(mut req: &mut Request) -> IronResult<Response> {
+        let mut conn = open_sqlite();
+        reg_new_texture(&mut conn, &mut req) 
+    }
+
+    router.get("/animations", list_animations, "list-animation");
+    fn list_animations(_: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
+        let mut stmt = conn.prepare(
+        "SELECT DISTINCT
+           AnimationId,
+           ObjectId,
+           JointIndex,
+           Name,
+           FileName,
+           Target
+           FROM Animation").unwrap();
+        let result = match stmt.query_map(&[], |row| {
+            Animation {
+                AnimationId  : row.get(0),
+                ObjectId: row.get(1),
+                JointIndex: row.get(2),
+                Name: row.get(3),     
+                FileName:  row.get(4),
+                Target: row.get(5),
+            }
+        }) {
+            Ok(object_iter) => {
+                let list = object_iter
+                    .map(|x| x.unwrap())
+                    .collect::<Vec<_>>();
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&list).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    }
+
+    router.put("/animation/new", create_animation, "create-animation");
+    fn create_animation(req: &mut Request) -> IronResult<Response> { 
+        let mut conn = open_sqlite();
+        let json = req.get::<bodyparser::Struct<Animation>>().unwrap().unwrap();
+        match reg_new_animation(&mut conn, json) {
+           Ok(_) => {
+                Ok(Response::with(status::Ok))
+           },
+           Err(err) => { 
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
+           }
         }
-        options "/object/delete/:id" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        delete "/object/delete/:id" => |req, mut rep| { 
-            let conn = open_sqlite();
-            let id = req.param("id").unwrap();
+    }
 
-            match conn.execute("
-                DELETE FROM Object 
-                WHERE 
-                  ObjectId = ?1
-                ;",
-                &[&id])
-                .and(conn.execute("
-                DELETE FROM Mesh 
-                WHERE 
-                  ObjectId = ?1
-                ;", &[&id]))
-                .and(conn.execute("
-                DELETE FROM MeshVertex 
-                WHERE 
-                  ObjectId = ?1
-                ;", &[&id]))
-                .and(conn.execute("
-                DELETE FROM JOINT
-                WHERE 
-                    ObjectId = ?1
-                ;", &[&id]))
+    router.put("/animation/update", update_animation, "update-animation");
+    fn update_animation(req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
+        let json = req.get::<bodyparser::Struct<Animation>>().unwrap().unwrap();
+
+        let result = match conn.execute("
+            UPDATE Animation 
+            SET
+              ObjectId = ?2,
+              Name = ?3,
+              JointIndex = ?4
+            WHERE AnimationId = ?1
+            ;", &[&json.AnimationId, &json.ObjectId, &json.Name, &json.JointIndex])
+        {
+            Ok(updated) => {
+                println!("Updated: {}", updated);
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&updated).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    }
+
+    router.delete("/animation/delete/:id", delete_animation, "delete-animation");
+    fn delete_animation(req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
+        let id = req.extensions.get::<Router>().unwrap().find("id").unwrap();
+
+        let result = match conn.execute("
+            DELETE FROM Animation 
+            WHERE 
+              AnimationId = ?1
+            ;", &[&id])
+        {
+            Ok(_) => {
+                Ok(Response::with(status::Ok))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    } 
+
+    router.put("/object/new", create_object, "create-object");
+    fn create_object(req: &mut Request) -> IronResult<Response> { 
+        let mut conn = open_sqlite();
+        let json = req.get::<bodyparser::Struct<Object>>().unwrap().unwrap();
+        match reg_new_object(&mut conn, json) {
+           Ok(_) => {
+               Ok(Response::with(status::Ok))
+           },
+           Err(err) => { 
+               println!("{:?}", err);
+               Ok(Response::with(status::InternalServerError))
+           }
+        }
+    }
+
+    router.delete("/object/delete/:id", delete_object, "delete-object");
+    fn delete_object(req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
+        let id = req.extensions.get::<Router>().unwrap().find("id").unwrap();
+
+        match conn.execute("
+            DELETE FROM Object 
+            WHERE 
+              ObjectId = ?1
+            ;",
+            &[&id])
+            .and(conn.execute("
+            DELETE FROM Mesh 
+            WHERE 
+              ObjectId = ?1
+            ;", &[&id]))
+            .and(conn.execute("
+            DELETE FROM MeshVertex 
+            WHERE 
+              ObjectId = ?1
+            ;", &[&id]))
+            .and(conn.execute("
+            DELETE FROM JOINT
+            WHERE 
+                ObjectId = ?1
+            ;", &[&id]))
             {
                 Ok(_) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Deleted");
-                    format!("Deleted")
+                    Ok(Response::with(status::Ok))
                 },
                 Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
                     println!("Failed: {}", err);
-                    format!("Failed")
+                    Ok(Response::with(status::InternalServerError))
                 }
             }
-        } 
+    } 
 
-        options "/texture/delete/:id" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        delete "/texture/delete/:id" => |req, mut rep| { 
-            let conn = open_sqlite();
-            let id = req.param("id").unwrap();
+    router.delete("/texture/delete/:id", delete_texture, "delete-texture");
+    fn delete_texture(req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
+        let id = req.extensions.get::<Router>().unwrap().find("id").unwrap();
 
-            match conn.execute("
-                DELETE FROM Texture 
-                WHERE 
-                  TextureId = ?1
-                ;", &[&id])
-            {
-                Ok(_) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Deleted");
-                    format!("Deleted")
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("Failed")
-                }
+        match conn.execute("
+            DELETE FROM Texture 
+            WHERE 
+              TextureId = ?1
+            ;", &[&id])
+        {
+            Ok(_) => {
+                Ok(Response::with(status::Ok))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
             }
-        } 
-        options "/texture/update" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/texture/update" => |req, mut rep| { 
-            let conn = open_sqlite();
+        }
+    } 
 
-            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-            #[allow(non_snake_case)]
-            struct Target {
-                TextureId: i32,
-                FileName: String,
-            }
+    router.put("/texture/update", update_texture, "update-texture");
+    fn update_texture(req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
 
-            let json = req.json_as::<Target>().unwrap();
-
-            let result = match conn.execute("
-                UPDATE Texture 
-                SET FileName = ?2
-                WHERE TextureId = ?1
-                ;", &[&json.TextureId, &json.FileName])
-            {
-                Ok(updated) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Updated: {}", updated);
-					updated.to_json()
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("Failed").to_json()
-                }
-            };
-			result
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[allow(non_snake_case)]
+        struct Target {
+            TextureId: i32,
+            FileName: String,
         }
 
-        options "/object/update" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/object/update" => |req, mut rep| { 
-            let conn = open_sqlite();
+        let json = req.get::<bodyparser::Struct<Target>>().unwrap().unwrap();
 
-            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-            #[allow(non_snake_case)]
-            struct Target {
-                ObjectId: i32,
-                Name: String,
-                FileName: String,
+        let result = match conn.execute("
+            UPDATE Texture 
+            SET FileName = ?2
+            WHERE TextureId = ?1
+            ;", &[&json.TextureId, &json.FileName])
+        {
+            Ok(updated) => {
+                println!("Updated: {}", updated);
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&updated).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
             }
+        };
+        result
+    }
 
-            let json = req.json_as::<Target>().unwrap();
+    router.put("/object/update", update_object, "update-object");
+    fn update_object(mut req: &mut Request) -> IronResult<Response> { 
+        let conn = open_sqlite();
 
-            let result = match conn.execute("
-                UPDATE Object 
-                SET Name = ?2
-                WHERE ObjectId = ?1
-                ;", &[&json.ObjectId, &json.Name])
-            {
-                Ok(updated) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Updated: {:?}", updated);
-					updated.to_json()
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("Failed").to_json()
-                }
-            };
-			result
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[allow(non_snake_case)]
+        struct Target {
+            ObjectId: i32,
+            Name: String,
+            FileName: String,
         }
 
-        options "/mesh/update" => |_, mut res| {
-			res.set(StatusCode::Ok); // currently workaround https://github.com/hapijs/hapi/issues/2868
-			"" // no content then 404
-		}
-        put "/mesh/update" => |req, mut rep| { 
-            let conn = open_sqlite();
+        let json = req.get::<bodyparser::Struct<Target>>().unwrap().unwrap();
 
-            #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
-            #[allow(non_snake_case)]
-            struct Target {
-                ObjectId: i32,
-                MeshId: i32,
-                TextureId: i32
+        let result = match conn.execute("
+            UPDATE Object 
+            SET Name = ?2
+            WHERE ObjectId = ?1
+            ;", &[&json.ObjectId, &json.Name])
+        {
+            Ok(updated) => {
+                println!("Updated: {}", updated);
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&updated).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
             }
+        };
+        result
+    }
 
-            let json = req.json_as::<Target>().unwrap();
+    router.put("/mesh/update", update_mesh, "update-mesh");
+    fn update_mesh(mut req: &mut Request) -> IronResult<Response> {
+        let conn = open_sqlite();
 
-            let result = match conn.execute("
-                UPDATE Mesh 
-                SET TextureId = ?3
-                WHERE ObjectId = ?1
-                  and MeshId = ?2
-                ;", &[&json.ObjectId, &json.MeshId, &json.TextureId])
-            {
-                Ok(updated) => {
-                    rep.set(StatusCode::Ok);
-                    println!("Updated: {:?}", updated);
-					updated.to_json()
-                },
-                Err(err) => {
-                    rep.set(StatusCode::InternalServerError);
-                    println!("Failed: {:?}", err);
-                    format!("{:?}", err).to_json()
-                }
-            };
-			result
-        } 
-    };
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[allow(non_snake_case)]
+        struct Target {
+            ObjectId: i32,
+            MeshId: i32,
+            TextureId: i32
+        }
 
-    let mut server = Nickel::new();
+        let json = req.get::<bodyparser::Struct<Target>>().unwrap().unwrap();
 
-    server.utilize(enable_cors);
-    server.utilize(router);
-    server.utilize(StaticFilesHandler::new("static"));
+        let result = match conn.execute("
+            UPDATE Mesh 
+            SET TextureId = ?3
+            WHERE ObjectId = ?1
+              and MeshId = ?2
+            ;", &[&json.ObjectId, &json.MeshId, &json.TextureId])
+        {
+            Ok(updated) => {
+                println!("Updated: {:?}", updated);
+                let content_type = mime::Mime(iron::mime::TopLevel::Application, iron::mime::SubLevel::Json, vec![]);
+                Ok(Response::with((content_type, status::Ok, serde_json::to_string(&updated).unwrap())))
+            },
+            Err(err) => {
+                println!("Failed: {:?}", err);
+                Ok(Response::with(status::InternalServerError))
+            }
+        };
+        result
+    } 
 
-    server.listen("127.0.0.1:3000").unwrap();
+    let mut chain = Chain::new(router);
+    // let cors_middleware = CorsMiddleware::with_allow_any(true);
+
+    chain.link_after(CORS::new());
+    Iron::new(chain).http("127.0.0.1:3000").unwrap();
 }
 
-fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response) -> Json {
-        #[derive(Clone, Debug, PartialEq, RustcEncodable, RustcDecodable)]
+fn reg_new_texture (conn: &mut Connection, req: &mut Request) -> IronResult<Response> {
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
         #[allow(non_snake_case)]
         struct FileId {
             TextureId: i32,
             FileName: String,
         }
-        let json = req.json_as::<FileId>().unwrap();
+        let json = req.get::<bodyparser::Struct<FileId>>().unwrap().unwrap();
 
         let filepath = format!("assets/texture/{}", json.FileName);
         let img = open_texture(&std::path::Path::new(filepath.as_str()));
@@ -760,16 +686,14 @@ fn reg_new_texture (conn: &mut Connection, req: &mut Request, rep: &mut Response
           (?1, ?2, ?3, ?4, ?5);"
         , &[&json.TextureId, &(img.width as i32), &(img.height as i32), &img.data, &json.FileName]) {
             Ok(ok) => {
-                rep.set(StatusCode::Ok);
-				ok.to_json()
+                Ok(Response::with((status::Ok, ok.to_string())))
             },
             Err(err) => { 
-                rep.set(StatusCode::InternalServerError);
                 println!("{:?}", err);
-                format!("{:?}", err).to_json()
+                Ok(Response::with((status::InternalServerError, err.to_string())))
             }
         };
-		result
+        result
 }
 
 fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
@@ -812,13 +736,19 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
                 }
             }
 
-            if let Some(skeltons) = collada_doc.get_skeletons() {
-                for skele in skeltons {
-                    println!("{}", skele.joints.len());
-                    for (i, j) in skele.joints.iter().enumerate() {
-                        insert_joint(&tx, json.ObjectId, i as i32, &j.name,  j.parent_index as i32, 
-                                     skele.bind_poses.get(i).unwrap(),
-                                     j.inverse_bind_pose).unwrap();
+            if let Some(skels) = collada_doc.get_skeletons() {
+                for s in skels {
+                    println!("{}", s.joints.len());
+                    for (i, j) in s.joints.iter().enumerate() {
+                        insert_joint(
+                            &tx,
+                            json.ObjectId,
+                            i as i32,
+                            &j.name,
+                            j.parent_index as i32, 
+                            s.bind_poses.get(i).unwrap(),
+                            j.inverse_bind_pose
+                        ).unwrap();
                     }
                 }
             }
@@ -857,13 +787,13 @@ fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), Strin
         };
         for (i, time) in a.sample_times.iter().enumerate()
         {
-			if let Some(pose) = a.sample_poses.get(i) {
-	            if let Err(err) = insert_animation(&tx, json.AnimationId + n as i32, json.ObjectId, time, joint_index, &json.Name, pose, &json.FileName, &a.target) {
-					errors.push(format!("{:?}", err))
-				}		
-			} else {
-				errors.push(format!("{:?}", "pose not found"))
-			}
+            if let Some(pose) = a.sample_poses.get(i) {
+                if let Err(err) = insert_animation(&tx, json.AnimationId + n as i32, json.ObjectId, time, joint_index, &json.Name, pose, &json.FileName, &a.target) {
+                    errors.push(format!("{:?}", err))
+                }
+            } else {
+                errors.push(format!("{:?}", "pose not found"))
+            }
         }
     }
 
@@ -1091,9 +1021,9 @@ INSERT INTO Animation
     SamplePose42 ,
     SamplePose43 ,
     SamplePose44 ,
-	Target,
+    Target,
     Name,
-	FileName
+    FileName
   )
 VALUES
   (?1 ,?2 , ?3 , ?4,
@@ -1119,9 +1049,9 @@ VALUES
                                 &(pose[1][3] as f64), 
                                 &(pose[2][3] as f64), 
                                 &(pose[3][3] as f64), 
-								&target,
+                                &target,
                                 &name,
-								&filename,
+                                &filename,
                                     ])) 
 }
 

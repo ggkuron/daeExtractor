@@ -298,5 +298,5 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
 }
 
 export default (
-    muiThemeable()((props: Props) => (<MeshTable {...props} />))
+    muiThemeable()(MeshTable)
 )

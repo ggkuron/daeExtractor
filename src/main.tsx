@@ -94,7 +94,7 @@ export default class MyApp extends React.Component<Props, States> {
     private fetch_textures_and_set = () => { this.fetch_textures((items) => this.setState({ textures: items } as States))}
     private fetch_animations_and_set = () => { this.fetch_animations((items) => this.setState({ animations: items } as States))}
 
-    componentWillMount = () => {
+    componentWillMount() {
         this.fetch_objects_and_set();
         this.fetch_textures_and_set();
         this.fetch_animations_and_set();
@@ -112,27 +112,27 @@ export default class MyApp extends React.Component<Props, States> {
                     <Tab label="Object">
                         <ObjectTable
                             items={this.state.objects}
-                            onNewItemRequest={(item) => {
+                            onNewItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/object/new`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
                                     }).then((res: any) => this.fetch_objects_and_set())
                             }}
-                            onDeleteRequest={(id) => {
+                            onDeleteRequest={(id: number) => {
                                 fetch(`${ApiServerOrigin}/object/delete/${id}`,
                                     { method: 'DELETE',
                                     }).then((res: any) => this.fetch_objects_and_set())
                             }}
-                            onItemFetchRequest={(id, action) => {
+                            onItemFetchRequest={(id: number, action: any) => {
                                 this.fetch_mesh(id, (meshes) => action(meshes))
                             }}
-                            onUpdateItemRequest={(item) => {
+                            onUpdateItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/object/update`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
                                     }).then((res: any) => this.fetch_objects_and_set())
                             }}
-                            onUpdateMeshRequest={(item, completed) => {
+                            onUpdateMeshRequest={(item: any, completed: any) => {
                                 fetch(`${ApiServerOrigin}/mesh/update`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
@@ -143,18 +143,18 @@ export default class MyApp extends React.Component<Props, States> {
                     <Tab label="Texture">
                         <TextureList
                             items={this.state.textures}
-                            onNewItemRequest={(item) => {
+                            onNewItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/texture/new`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
                                     }).then((res: any) => this.fetch_textures_and_set())
                             }}
-                            onDeleteRequest={(id) => {
+                            onDeleteRequest={(id: number) => {
                                 fetch(`${ApiServerOrigin}/texture/delete/${id}`,
                                     { method: 'DELETE',
                                     }).then((res: any) => this.fetch_textures_and_set())
                             }}
-                            onUpdateItemRequest={(item) => {
+                            onUpdateItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/texture/update`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
@@ -165,18 +165,18 @@ export default class MyApp extends React.Component<Props, States> {
                     <Tab label="Animation">
                         <AnimationList
                             items={this.state.animations}
-                            onNewItemRequest={(item) => {
+                            onNewItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/animation/new`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)
                                     }).then((res: any) => this.fetch_animations_and_set())
                             }}
-                            onDeleteRequest={(id) => {
+                            onDeleteRequest={(id: number) => {
                                 fetch(`${ApiServerOrigin}/animation/delete/${id}`,
                                     { method: 'DELETE',
                                     }).then((res: any) => this.fetch_animations_and_set())
                             }}
-                            onUpdateItemRequest={(item) => {
+                            onUpdateItemRequest={(item: any) => {
                                 fetch(`${ApiServerOrigin}/animation/update`,
                                     { method: 'PUT',
                                       body: JSON.stringify(item)

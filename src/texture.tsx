@@ -331,5 +331,5 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
 }
 
 export default (
-    muiThemeable()((props: Props) => (<TextureList {...props} />))
+    muiThemeable()(TextureList)
 )
