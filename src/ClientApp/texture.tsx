@@ -12,6 +12,7 @@ import ContentDel from 'material-ui/svg-icons/action/delete';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 
 import {fade} from 'material-ui/utils/colorManipulator'
+import transitions from 'material-ui/styles/transitions';
 
 import { StyleSheet, css } from 'aphrodite';
 
@@ -64,6 +65,7 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
         padding: 5,
         borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
         backgroundColor: muiTheme.palette.canvasColor,
+        transition: transitions.create('height', '240ms', '0ms', 'ease-in-out'),
     },
     itemContainerSelected: {
         display: 'flex',
@@ -77,6 +79,7 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
         backgroundColor: muiTheme.palette.canvasColor,
         boxShadow: `inset 0px 0px 4px ${muiTheme.palette.primary1Color}`,
         cursor: 'default',
+        transition: transitions.create('height', '240ms', '0ms', 'ease-in-out'),
     },
     itemContainerNotEditable: {
         display: 'flex',

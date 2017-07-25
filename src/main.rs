@@ -770,6 +770,7 @@ fn reg_new_object(conn: &mut Connection, json: Object) -> Result<(), String> {
 }
 
 fn reg_new_animation(conn: &mut Connection, json: Animation) -> Result<(), String> {
+
     let tx = conn.transaction().unwrap();
     let mut errors = Vec::new();
 

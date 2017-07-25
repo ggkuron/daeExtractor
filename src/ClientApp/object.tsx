@@ -15,6 +15,8 @@ import MuiThemeProviderProps = __MaterialUI.Styles.MuiThemeProviderProps;
 import { StyleSheet, css } from 'aphrodite';
 import MeshList, { ItemSummary as MeshItemSummary, Item as MeshItem } from './mesh';
 
+import transitions from 'material-ui/styles/transitions';
+
 
 export interface Props extends MuiThemeProviderProps {
     muiTheme?: __MaterialUI.Styles.MuiTheme;
@@ -51,14 +53,14 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
     },
     editArea: {
         height: 'auto',
-        transition: 'height 200ms ease-in-out 0ms',
+        transition: transitions.create('height', '200ms', '0ms', 'ease-in-out'),
     },
     editAreaHidden: {
         height: 0,
         width: 0,
         padding: 0,
         border: 0,
-        transition: 'height 300ms ease-in-out 0ms'
+        transition: transitions.create('height', '300ms', '0ms', 'ease-in-out'),
     },
     itemContainer: {
         display: 'flex',
@@ -71,6 +73,7 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
         borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
         backgroundColor: muiTheme.palette.canvasColor,
         cursor: 'pointer',
+        transition: transitions.create('height', '140ms', '0ms', 'ease-in-out'),
     },
     itemContainerSelected: {
         display: 'flex',
@@ -84,6 +87,7 @@ const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
         backgroundColor: muiTheme.palette.canvasColor,
         boxShadow: `inset 0px 0px 4px ${muiTheme.palette.primary1Color}`,
         cursor: 'default',
+        transition: transitions.create('height', '140ms', '0ms', 'ease-in-out'),
     },
     itemContainerNotEditable: {
         display: 'flex',
@@ -156,46 +160,47 @@ class ObjectTable extends React.Component<Props, States> {
         return (
             <div className={css(styles.container)}>
                 <ul className={css(styles.listContainer)}>
-                    {this.props.items.map((item, i) => {
-                        const selected = this.state.selectedId === item.ObjectId;
-                        return (
-                            <ListItem
-                                item={item}
-                                key={`list${item.ObjectId}`}
-                                style={selected ? styles.itemContainerSelected : (this.state.editing ? styles.itemContainerNotEditable: styles.itemContainer)}
-                                onSelect={() => {
-                                    if (!this.state.editing) {
-                                        if (!selected)
-                                            this.props.onItemFetchRequest(item.ObjectId,
-                                                (meshes) => this.setState({ selectedId: item.ObjectId, meshItems: meshes } as States))
-                                        else this.setState({ selectedId: null, meshItems: [] } as States)
-                                    }
-                                }}
-                                onDeleteClick={() => {
-                                    this.setState({ editing: false } as States);
-                                    this.props.onDeleteRequest(item.ObjectId)
-                                }}
-                                onEditStart={() => {
-                                    if (this.state.editing) {
-                                        return false;
-                                    } else {
-                                        this.setState({ editing: true} as States)
-                                        if (!selected)
-                                            this.props.onItemFetchRequest(item.ObjectId,
-                                                (meshes) => this.setState({ selectedId: item.ObjectId, meshItems: meshes } as States))
-                                        return true;
-                                    }
-                                }}
-                                onEditComplete={(updated: Item) => {
-                                    this.setState({ editing: false } as States);
-                                    this.props.onUpdateItemRequest(updated);
-                                }}
-                                editable={!this.state.editing || selected}
-                                check_id={this.check_id}
-                            />
-                        );
-                    })}
-
+                    {
+                        this.props.items.map((item, i) => {
+                            const selected = this.state.selectedId === item.ObjectId;
+                            return (
+                                <ListItem
+                                    item={item}
+                                    key={`list${item.ObjectId}`}
+                                    style={selected ? styles.itemContainerSelected : (this.state.editing ? styles.itemContainerNotEditable: styles.itemContainer)}
+                                    onSelect={() => {
+                                        if (!this.state.editing) {
+                                            if (!selected)
+                                                this.props.onItemFetchRequest(item.ObjectId,
+                                                    (meshes) => this.setState({ selectedId: item.ObjectId, meshItems: meshes } as States))
+                                            else this.setState({ selectedId: null, meshItems: [] } as States)
+                                        }
+                                    }}
+                                    onDeleteClick={() => {
+                                        this.setState({ editing: false } as States);
+                                        this.props.onDeleteRequest(item.ObjectId)
+                                    }}
+                                    onEditStart={() => {
+                                        if (this.state.editing) {
+                                            return false;
+                                        } else {
+                                            this.setState({ editing: true} as States)
+                                            if (!selected)
+                                                this.props.onItemFetchRequest(item.ObjectId,
+                                                    (meshes) => this.setState({ selectedId: item.ObjectId, meshItems: meshes } as States))
+                                            return true;
+                                        }
+                                    }}
+                                    onEditComplete={(updated: Item) => {
+                                        this.setState({ editing: false } as States);
+                                        this.props.onUpdateItemRequest(updated);
+                                    }}
+                                    editable={!this.state.editing || selected}
+                                    check_id={this.check_id}
+                                />
+                            );
+                        })
+                    }
                     <li className={css(styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} >
                         <TextField id="txt_id" type="number"
                             floatingLabelText={this.state.showAddArea ? "id" : undefined}
@@ -305,53 +310,67 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
 
     render() {
         return (
-            <li className={css( this.props.style )}
+            <li 
+                className={css( this.props.style )}
                 onClick={() => this.props.onSelect(this.props.item.ObjectId)}
             >
-                <div>{this.state.editing ?
-                    <TextField floatingLabelText="ObjectId" defaultValue={this.props.item.ObjectId}
-                        disabled={true}
-                    /> :
-                    this.props.item.ObjectId}</div>
-                <div>{this.state.editing ?
+            <div>
+            {
+                this.state.editing ?
+                    <TextField floatingLabelText="ObjectId" defaultValue={this.props.item.ObjectId} disabled={true} /> :
+                    this.props.item.ObjectId
+            }
+            </div>
+            <div>
+            {
+                this.state.editing ?
                     <TextField floatingLabelText="Name" defaultValue={this.props.item.Name}
-                        onChange={(ev, txt) => {
-                            this.setState({ new_name: txt } as ListItemStates);
-                        }}
+                    onChange={(ev, txt) => {
+                        this.setState({ new_name: txt } as ListItemStates);
+                    }}
                     /> :
-                    this.props.item.Name}</div>
-                <div>{this.state.editing ?
+                    this.props.item.Name
+            }
+            </div>
+            <div>
+            {
+                this.state.editing ?
                     <TextField floatingLabelText="FileName" defaultValue={this.props.item.FileName} disabled={true} /> :
-                    this.props.item.FileName}</div>
-                <div style={{
-                        visibility: this.props.editable ? 'visible' : 'hidden',
-                        opacity: this.props.editable ? 1 : 0,
-                    }}>
-                    {this.state.editing ?
-                        <FloatingActionButton zDepth={0} mini={true}
-                            onTouchTap={() => {
-                                this.props.onEditComplete({
-                                    ObjectId: this.props.item.ObjectId,
-                                    Name: this.state.new_name,
-                                    FileName: this.props.item.FileName
-                                });
-                                this.setState({ editing: false });
-                            }}
-                        ><ContentSave /></FloatingActionButton> :
-                        <FloatingActionButton zDepth={0} mini={true} secondary={true}
-                            onTouchTap={() => {
-                                if (this.props.onEditStart())
-                                    this.setState({ editing: true });
-                            }}
-                        ><ModeEdit /></FloatingActionButton>
-                    }
-                    {this.state.editing ?
-                        <FloatingActionButton zDepth={0} mini={true}
-                            style={{ marginLeft: 15 }}
-                            onTouchTap={() => { this.props.onDeleteClick(this.props.item.ObjectId); }}
-                        ><ContentDel /></FloatingActionButton> : null
-                    }
-                </div>
+                    this.props.item.FileName
+            }
+            </div>
+            <div style={{
+                visibility: this.props.editable ? 'visible' : 'hidden',
+                    opacity: this.props.editable ? 1 : 0,
+            }}>
+            {
+                this.state.editing ?
+                    <FloatingActionButton zDepth={0} mini={true}
+                        onTouchTap={() => {
+                            this.props.onEditComplete({
+                                ObjectId: this.props.item.ObjectId,
+                                Name: this.state.new_name,
+                                FileName: this.props.item.FileName
+                            });
+                            this.setState({ editing: false });
+                        }}
+                    ><ContentSave /></FloatingActionButton> :
+                    <FloatingActionButton zDepth={0} mini={true} secondary={true}
+                        onTouchTap={() => {
+                            if (this.props.onEditStart())
+                                this.setState({ editing: true });
+                        }}
+                    ><ModeEdit /></FloatingActionButton>
+            }
+            {
+                this.state.editing ?
+                    <FloatingActionButton 
+                        zDepth={0} mini={true}
+                        style={{ marginLeft: 15 }}
+                        onTouchTap={() => { this.props.onDeleteClick(this.props.item.ObjectId); }}
+                    ><ContentDel /></FloatingActionButton> : null
+            }
+            </div>
             </li>
         );
     }

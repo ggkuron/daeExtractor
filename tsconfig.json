@@ -13,6 +13,6 @@
     "types": [ "material-ui" ]
   },
     "files": [
-        "./src/entry.tsx"
+        "./src/ClientApp/entry.tsx"
     ]
 }
