@@ -10,7 +10,7 @@
       "dom",
       "es2015"
     ],
-    "types": [ "fetch", "material-ui" ]
+    "types": [ "material-ui" ]
   },
     "files": [
         "./src/entry.tsx"
