@@ -12,8 +12,9 @@ import ContentDel from 'material-ui/svg-icons/action/delete';
 import ModeEdit from 'material-ui/svg-icons/editor/mode-edit';
 
 import {fade} from 'material-ui/utils/colorManipulator'
+import transitions from 'material-ui/styles/transitions';
 
-import { StyleSheet, css } from 'aphrodite';
+import { default as buttonWrap, ButtonProps } from './buttonWrap';
 
 
 export interface Props extends MuiThemeProviderProps {
@@ -44,101 +45,85 @@ export interface Item {
 }
 
 
-const generateStyles = (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
-    container: {
-    },
-    editArea: {
-        height: 'auto',
-        transition: 'height 200ms ease-in-out 0ms'
-    },
-    editAreaHidden: {
-        height: 0,
-        width: 0,
-        padding: 0,
-        border: 0,
-        transition: 'height 300ms ease-in-out 0ms'
-    },
-    itemContainer: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 52,
-        width: 'auto',
-        padding: 5,
-        borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
-        backgroundColor: muiTheme.palette.canvasColor,
-    },
-    itemContainerSelected: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 72,
-        width: 'auto',
-        padding: 5,
-        borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
-        backgroundColor: muiTheme.palette.canvasColor,
-        boxShadow: `inset 0px 0px 4px ${muiTheme.palette.primary1Color}`,
-        cursor: 'default',
-    },
-    itemContainerNotEditable: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 52,
-        width: 'auto',
-        padding: 5,
-        borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
-        backgroundColor: muiTheme.palette.canvasColor,
-        cursor: 'default',
-    },
-    itemInnerContainer: {
-        display: 'flex',
-        height: '100%',
-        width: '100%',
-    },
-    listContainer: {
-        display: 'flex',
-        flexDirection: 'column',
-        padding: 0,
-        borderTop: `1px solid ${muiTheme.palette.borderColor}`,
-        borderLeft: `1px solid ${muiTheme.palette.borderColor}`,
-        borderRight: `1px solid ${muiTheme.palette.borderColor}`,
-    },
-    addButton: {
-        float: 'right',
-        marginTop: 15,
-        opacity: 1,
-        transition: 'opacity 300ms ease-in-out 0ms'
-    },
-    addButtonHidden: {
-        opacity: 0,
-    },
-    flatButton: {
-        justifyContent: 'center',
-    },
-    hideButton: {
-        backgroundColor: muiTheme.palette.borderColor,
-        color: muiTheme.palette.textColor,
-        ":hover": {
-            backgroundColor: fade(muiTheme.palette.borderColor, 0.6),
-            color: muiTheme.palette.textColor,
+const generateStyles: (muiTheme: __MaterialUI.Styles.MuiTheme) => { [key: string]: React.CSSProperties } =
+    (muiTheme: __MaterialUI.Styles.MuiTheme) => ({
+        container: {
+        },
+        editArea: {
+            height: 'auto',
+            transition: transitions.create('height', '200ms', '0ms', 'ease-in-out'),
+        },
+        editAreaHidden: {
+            height: 0,
+            width: 0,
+            padding: 0,
+            border: 0,
+            transition: transitions.create('height', '300ms', '0ms', 'ease-in-out'),
+        },
+        itemContainer: {
+            display: 'flex',
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            height: 52,
+            width: 'auto',
+            padding: 5,
+            borderBottom: `1px solid ${muiTheme.palette.borderColor}`,
+            backgroundColor: muiTheme.palette.canvasColor,
+            transition: transitions.create('height', '120ms', '0ms', 'ease-in-out'),
+        },
+        itemContainerSelected: {
+            height: 72,
+            boxShadow: `inset 0px 0px 4px ${muiTheme.palette.primary1Color}`,
+            cursor: 'default',
+            transition: transitions.create('height', '120ms', '0ms', 'ease-in-out'),
+        },
+        itemInnerContainer: {
+            display: 'flex',
+            height: '100%',
+            width: '100%',
+        },
+        listContainer: {
+            display: 'flex',
+            flexDirection: 'column',
+            padding: 0,
+            borderTop: `1px solid ${muiTheme.palette.borderColor}`,
+            borderLeft: `1px solid ${muiTheme.palette.borderColor}`,
+            borderRight: `1px solid ${muiTheme.palette.borderColor}`,
+        },
+        addButton: {
+            float: 'right',
+            marginTop: 15,
+            opacity: 1,
+            transition: transitions.create('opacity', '300ms', '0ms', 'ease-in-out'),
+        },
+        addButtonHidden: {
+            opacity: 0,
+        },
+        flatButton: {
+            justifyContent: 'center',
+        },
+        saveButton: {
+            display: 'flex',
+        },
+        saveButtonHidden: {
+            width: 0,
+            height: 0,
+        },
+        inputHidden: {
+            width: 0,
+            height: 0,
         }
-    },
-    saveButton: {
-        display: 'flex',
-    },
-    saveButtonHidden: {
-        width: 0,
-        height: 0,
-    },
-    inputHidden: {
-        width: 0,
-        height: 0,
+    });
+const HideButton = buttonWrap(
+    function HideButton(p: __MaterialUI.FlatButtonProps & ButtonProps) {
+        const {
+            cssStyle,
+            ...rest
+        } = p;
+        return <FlatButton {...rest} />;
     }
-});
+);
 
 class AnimationList extends React.Component<Props, States> {
     constructor() {
@@ -151,45 +136,47 @@ class AnimationList extends React.Component<Props, States> {
     }
 
     render() {
-        const styles = StyleSheet.create(generateStyles(this.props.muiTheme));
+        const styles = generateStyles(this.props.muiTheme);
         return (
-            <div className={css(styles.container)}>
-                <ul className={css(styles.listContainer)}>
-                    {this.props.items.map((item, i) => {
-                        const selected = this.state.selectedId === item.AnimationId;
-                        return (
-                            <ListItem
-                                item={item}
-                                key={`list${i}`}
-                                style={selected ? styles.itemContainerSelected : (this.state.editing ? styles.itemContainerNotEditable : styles.itemContainer)}
-                                onSelect={() => {
-                                    if (!this.state.editing) {
-                                        if (!selected)
-                                            this.setState({ selectedId: item.AnimationId } as States);
-                                        else this.setState({ selectedId: null} as States)
-                                    }
-                                }}
-                                onDeleteClick={() => {
-                                    this.setState({ editing: false } as States);
-                                    this.props.onDeleteRequest(item.AnimationId)
-                                }}
-                                onEditStart={() => {
-                                    if (this.state.editing) {
-                                        return false;
-                                    } else {
-                                        this.setState({ selectedId: item.AnimationId, editing: true } as States)
-                                        return true;
-                                    }
-                                }}
-                                onEditComplete={(updated: Item) => {
-                                    this.setState({ editing: false } as States);
-                                    this.props.onUpdateItemRequest(updated);
-                                }}
-                                editable={!this.state.editing || selected}
-                            />
-                        );
-                    })}
-                    <li className={css(styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} >
+            <div style={styles.container}>
+                <ul style={styles.listContainer}>
+                    {
+                        this.props.items.map((item, i) => {
+                            const selected = this.state.selectedId === item.AnimationId;
+                            return (
+                                <ListItem
+                                    item={item}
+                                    key={`list_${i}`}
+                                    style={Object.assign({}, styles.itemContainer, selected && styles.itemContainerSelected )}
+                                    onSelect={() => {
+                                        if (!this.state.editing) {
+                                            if (!selected)
+                                                this.setState({ selectedId: item.AnimationId } as States);
+                                            else this.setState({ selectedId: null} as States)
+                                        }
+                                    }}
+                                    onDeleteClick={() => {
+                                        this.setState({ editing: false } as States);
+                                        this.props.onDeleteRequest(item.AnimationId)
+                                    }}
+                                    onEditStart={() => {
+                                        if (this.state.editing) {
+                                            return false;
+                                        } else {
+                                            this.setState({ selectedId: item.AnimationId, editing: true } as States)
+                                            return true;
+                                        }
+                                    }}
+                                    onEditComplete={(updated: Item) => {
+                                        this.setState({ editing: false } as States);
+                                        this.props.onUpdateItemRequest(updated);
+                                    }}
+                                    editable={!this.state.editing || selected}
+                                />
+                            );
+                        })
+                    }
+                    <li style={Object.assign({}, styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} key="newContainer" >
                         <TextField id="txt_id" type="number"
                             floatingLabelText={this.state.showAddArea ? "AnimationId" : undefined}
                             style={{ flexBasis: '100%' }}
@@ -199,10 +186,10 @@ class AnimationList extends React.Component<Props, States> {
                             }}
                             errorText={this.state.error_id}
                         />
-                        <div className={css(styles.itemInnerContainer)} style={{ flexBasis: '100%' }} >
+                        <div style={Object.assign({}, styles.itemInnerContainer, { flexBasis: '100%' })} >
                             <input id="upd_file"
                                 type="file"
-                                className={css(!this.state.showAddArea && styles.inputHidden)}
+                                style={Object.assign({}, !this.state.showAddArea && styles.inputHidden)}
                                 onChange={(ev) => {
                                     const filename = ev.target.files[0].name;
                                     this.setState({ new_filename: filename } as States);
@@ -210,7 +197,7 @@ class AnimationList extends React.Component<Props, States> {
                             />
                         </div>
                         <FloatingActionButton
-                            className={css(styles.saveButton, !this.state.showAddArea && styles.saveButtonHidden)}
+                            style={Object.assign({}, styles.saveButton, !this.state.showAddArea && styles.saveButtonHidden)}
                             onTouchTap={() => {
                                 if (this.state.new_id && this.state.new_filename) {
                                     this.props.onNewItemRequest({
@@ -226,8 +213,8 @@ class AnimationList extends React.Component<Props, States> {
                             disabled={!!this.state.error_id || !this.state.new_filename}
                         ><ContentSave /></FloatingActionButton>
                     </li>
-                    <li className={css(styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} >
-                        <FlatButton label="hide" onTouchTap={() => this.setState({ showAddArea: false })} className={css(styles.itemInnerContainer, styles.flatButton, styles.hideButton)} />
+                    <li style={Object.assign({}, styles.itemContainer, this.state.showAddArea ? styles.editArea : styles.editAreaHidden)} key="buttonContainer">
+                        <HideButton label="hide" onTouchTap={() => this.setState({ showAddArea: false })} style={Object.assign({}, styles.itemInnerContainer, styles.flatButton)} />
                     </li>
                 </ul>
 
@@ -236,7 +223,7 @@ class AnimationList extends React.Component<Props, States> {
                         onTouchTap={() => {
                             this.setState({ showAddArea: true })
                         }}
-                        className={css(styles.addButton, this.state.showAddArea && styles.addButtonHidden)}
+                        style={Object.assign({}, styles.addButton, this.state.showAddArea && styles.addButtonHidden)}
                     ><ContentAdd /></FloatingActionButton>
                 </div>
 
@@ -297,37 +284,66 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
     }
 
     render() {
+        const styles = {
+            container: {
+            },
+            item: {
+                textAlign: 'center',
+                flexBasis: 160,
+                flexGrow: 1,
+                flexShrink: 0,
+            },
+            itemS: {
+                flexBasis: 80,
+                textAlign: 'right',
+                flexGrow: 0,
+            }
+        };
         return (
-            <li className={css( this.props.style )}
+            <li style={Object.assign(styles.container, this.props.style)}
                 onClick={() => this.props.onSelect(this.props.item.AnimationId)}
             >
-                <div>{this.state.editing ?
-                    <TextField floatingLabelText="AnimationId" defaultValue={this.props.item.AnimationId}
-                        type="number"
-                        disabled={true}
-                    /> :
-                    this.props.item.AnimationId}</div>
-                <div>{this.state.editing ?
-                    <TextField floatingLabelText="ObjectId" defaultValue={this.props.item.ObjectId}
-                        type="number"
-                        onChange={(ev, txt) => {
-                            const id = parseInt(txt);
-                            if (!isNaN(id)) {
-                                this.setState({ new_objectId: id } as ListItemStates);
-                            }
-                        }}
-                    /> :
-                    this.props.item.ObjectId}</div>
-                <div>{this.state.editing ?
-                    <TextField floatingLabelText="Name" defaultValue={this.props.item.Name}
-                        onChange={(ev, txt) => {
-                            this.setState({ new_name: txt } as ListItemStates);
-                        }}
-                    /> :
-                    this.props.item.Name}</div>
-                <div>{this.props.item.FileName}</div>
-                <div>{this.props.item.Target}</div>
-                <div>{this.state.editing ?
+                <div style={Object.assign({}, styles.item, styles.itemS)}>
+                {
+                    this.state.editing ?
+                        <TextField floatingLabelText="AnimationId" defaultValue={this.props.item.AnimationId}
+                            type="number"
+                            disabled={true}
+                            fullWidth={true}
+                        /> :
+                        this.props.item.AnimationId
+                }
+                </div>
+                <div style={Object.assign({}, styles.item, styles.itemS)}>
+                {
+                    this.state.editing ?
+                        <TextField floatingLabelText="ObjectId" defaultValue={this.props.item.ObjectId}
+                            type="number"
+                            onChange={(ev, txt) => {
+                                const id = parseInt(txt);
+                                if (!isNaN(id)) {
+                                    this.setState({ new_objectId: id } as ListItemStates);
+                                }
+                            }}
+                            fullWidth={true}
+                        /> :
+                        this.props.item.ObjectId
+                }
+                </div>
+                {
+                // <div className={css(styles.item)}>
+                //     this.state.editing ?
+                //         <TextField floatingLabelText="Name" defaultValue={this.props.item.Name}
+                //             onChange={(ev, txt) => {
+                //                 this.setState({ new_name: txt } as ListItemStates);
+                //             }}
+                //         /> :
+                //         this.props.item.Name
+                // </div>
+                }
+                <div style={styles.item}>{this.props.item.FileName}</div>
+                <div style={styles.item}>{this.props.item.Target}</div>
+                <div style={Object.assign({}, styles.item, styles.itemS)}>{this.state.editing ?
                     <TextField floatingLabelText="JointIndex" defaultValue={this.props.item.JointIndex}
                         type="number"
                         onChange={(ev, txt) => {
@@ -336,41 +352,50 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
                                 this.setState({ new_jointIndex: id } as ListItemStates);
                             }
                         }}
+                        fullWidth={true}
                     /> :
                     this.props.item.JointIndex}</div>
-                <div style={{
+                <div 
+                    style={{
                         visibility: this.props.editable ? 'visible' : 'hidden',
                         opacity: this.props.editable ? 1 : 0,
-                    }}>
-                    {this.state.editing ?
-                        <FloatingActionButton zDepth={0} mini={true}
-                            onTouchTap={() => {
-                                this.props.onEditComplete({
-                                    AnimationId: this.props.item.AnimationId,
-                                    ObjectId: this.state.new_objectId,
-                                    Name: this.state.new_name,
-                                    FileName: this.props.item.FileName,
-                                    Target: this.props.item.Target,
-                                    JointIndex: this.state.new_jointIndex,
-                                });
-                                this.setState({ editing: false });
-                            }}
-                            disabled={!!this.state.error_texture}
-                        ><ContentSave /></FloatingActionButton> :
-                        <FloatingActionButton zDepth={0} mini={true} secondary={true}
-                            onTouchTap={() => {
-                                if (this.props.onEditStart())
-                                    this.setState({ editing: true });
-                            }}
-                        ><ModeEdit /></FloatingActionButton>
+                        flexBasis: this.state.editing? 128: 64,
+                        flexGrow: 0,
+                        flexShrink: 0,
+                        textAlign: 'center',
+                    }}
+                >
+                    {
+                        this.state.editing ?
+                            <FloatingActionButton zDepth={0} mini={true}
+                                onTouchTap={() => {
+                                    this.props.onEditComplete({
+                                        AnimationId: this.props.item.AnimationId,
+                                        ObjectId: this.state.new_objectId,
+                                        Name: this.state.new_name,
+                                        FileName: this.props.item.FileName,
+                                        Target: this.props.item.Target,
+                                        JointIndex: this.state.new_jointIndex,
+                                    });
+                                    this.setState({ editing: false });
+                                }}
+                                disabled={!!this.state.error_texture}
+                            ><ContentSave /></FloatingActionButton> :
+                            <FloatingActionButton zDepth={0} mini={true} secondary={true}
+                                onTouchTap={() => {
+                                    if (this.props.onEditStart())
+                                        this.setState({ editing: true });
+                                }}
+                            ><ModeEdit /></FloatingActionButton>
                     }
-                    {this.state.editing ?
-                        <FloatingActionButton zDepth={0} mini={true}
-                            style={{ marginLeft: 15 }}
-                            onTouchTap={() => {
-                                this.props.onDeleteClick(this.props.item.AnimationId);
-                            }}
-                        ><ContentDel /></FloatingActionButton> : null
+                    {
+                        this.state.editing ?
+                            <FloatingActionButton zDepth={0} mini={true}
+                                style={{ marginLeft: 15 }}
+                                onTouchTap={() => {
+                                    this.props.onDeleteClick(this.props.item.AnimationId);
+                                }}
+                            ><ContentDel /></FloatingActionButton> : null
                     }
                 </div>
             </li>
@@ -379,5 +404,5 @@ class ListItem extends React.Component<ListItemProps, ListItemStates> {
 }
 
 export default (
-    muiThemeable()((props: Props) => (<AnimationList {...props} />))
+    muiThemeable()(AnimationList)
 )
